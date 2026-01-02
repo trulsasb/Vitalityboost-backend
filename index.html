@@ -1,0 +1,300 @@
+/*****************************************************************
+ * VITALITY BOOST – FULL PRODUKSJON
+ * Stripe + Vipps Webhooks, Lager, Multi-admin, Fiken
+ *****************************************************************/
+
+const express = require("express");
+const session = require("express-session");
+const rateLimit = require("express-rate-limit");
+const sqlite3 = require("sqlite3").verbose();
+const { createObjectCsvWriter } = require("csv-writer");
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
+const fetch = (...args) => import("node-fetch").then(({default: fetch}) => fetch(...args));
+
+const app = express();
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(rateLimit({ windowMs: 15*60*1000, max: 300 }));
+
+/* ---------------- SESSION ---------------- */
+app.use(session({
+  secret: "vitalityboost_admin_secret",
+  resave: false,
+  saveUninitialized: false
+}));
+
+/* ---------------- DATABASE ---------------- */
+const db = new sqlite3.Database("./database.db");
+db.serialize(() => {
+  db.run(`CREATE TABLE IF NOT EXISTS products (
+    id INTEGER PRIMARY KEY,
+    title TEXT,
+    price INTEGER,
+    active INTEGER,
+    stock INTEGER
+  )`);
+  db.run(`CREATE TABLE IF NOT EXISTS orders (
+    id TEXT PRIMARY KEY,
+    email TEXT,
+    amount INTEGER,
+    method TEXT,
+    status TEXT,
+    created DATETIME
+  )`);
+  db.run(`CREATE TABLE IF NOT EXISTS admins (
+    id INTEGER PRIMARY KEY,
+    username TEXT UNIQUE,
+    password TEXT
+  )`);
+});
+
+// Seed initial data if products table empty
+db.get("SELECT COUNT(*) AS count FROM products", (err,row)=>{
+  if(row.count===0){
+    const stmt = db.prepare("INSERT INTO products (title, price, active, stock) VALUES (?,?,?,?)");
+    stmt.run("Omega Vital+",399,1,20);
+    stmt.run("Collagen Boost 50+",449,1,15);
+    stmt.run("MindSharp Focus",349,1,25);
+    stmt.run("Longevity Multivitamin",299,1,30);
+    stmt.finalize();
+  }
+});
+
+/* ---------------- AUTH ---------------- */
+function requireAdmin(req,res,next){
+  if(req.session.admin) return next();
+  res.redirect("/admin/login");
+}
+
+/* ---------------- ADMIN LOGIN ---------------- */
+app.get("/admin/login",(req,res)=>{
+  res.send(`
+    <h2>Admin Login</h2>
+    <form method="POST">
+      <input type="text" name="username" placeholder="Brukernavn"/><br/>
+      <input type="password" name="password" placeholder="Passord"/><br/>
+      <button>Logg inn</button>
+    </form>
+  `);
+});
+
+app.post("/admin/login",(req,res)=>{
+  const {username,password} = req.body;
+  db.get("SELECT * FROM admins WHERE username=? AND password=?",[username,password],(err,row)=>{
+    if(row){
+      req.session.admin = {id:row.id, username:row.username};
+      res.redirect("/admin");
+    } else res.send("Feil brukernavn/passord");
+  });
+});
+
+/* ---------------- ADMIN DASHBOARD ---------------- */
+app.get("/admin",requireAdmin,(req,res)=>{
+  db.all("SELECT * FROM orders",(err,orders)=>{
+    db.all("SELECT * FROM products",(err,products)=>{
+      const total = orders.reduce((s,o)=>s+o.amount,0);
+      const stripeCount = orders.filter(o=>o.method==="Stripe").length;
+      const vippsCount = orders.filter(o=>o.method==="Vipps").length;
+
+      res.send(`
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+body{font-family:system-ui;background:#f6f4ef;padding:1rem}
+table{width:100%;border-collapse:collapse;margin-bottom:1rem}
+th,td{border:1px solid #ddd;padding:0.5rem;text-align:left}
+button{margin:0.2rem;padding:0.4rem}
+</style>
+</head>
+<body>
+
+<h1>Admin Dashboard</h1>
+<div>
+  📦 Ordrer: ${orders.length} |
+  💰 Omsetning: ${total} kr |
+  💳 Stripe: ${stripeCount} |
+  📱 Vipps: ${vippsCount}
+</div>
+
+<h2>Produkter / Lager</h2>
+<table>
+<tr><th>ID</th><th>Tittel</th><th>Pris</th><th>Aktiv</th><th>Lager</th><th>Handling</th></tr>
+${products.map(p=>`
+<tr>
+<form method="POST" action="/admin/product/${p.id}">
+<td>${p.id}</td>
+<td><input name="title" value="${p.title}"/></td>
+<td><input name="price" value="${p.price}"/></td>
+<td>
+<select name="active">
+<option ${p.active?"selected":""}>1</option>
+<option ${!p.active?"selected":""}>0</option>
+</select>
+</td>
+<td><input name="stock" value="${p.stock}"/></td>
+<td><button>Oppdater</button></td>
+</form>
+</tr>`).join("")}
+</table>
+
+<h2>Ordrer</h2>
+<table>
+<tr><th>ID</th><th>E-post</th><th>Beløp</th><th>Metode</th><th>Status</th><th>Dato</th></tr>
+${orders.map(o=>`
+<tr>
+<td>${o.id}</td>
+<td>${o.email}</td>
+<td>${o.amount}</td>
+<td>${o.method}</td>
+<td>${o.status}</td>
+<td>${o.created}</td>
+</tr>`).join("")}
+</table>
+
+<form method="POST" action="/admin/export">
+<button>Eksporter til CSV for Fiken</button>
+</form>
+
+<h2>Administrasjon</h2>
+<form method="POST" action="/admin/add-admin">
+<input name="username" placeholder="Brukernavn"/>
+<input name="password" placeholder="Passord"/>
+<button>Legg til admin</button>
+</form>
+
+<a href="/admin/logout">Logg ut</a>
+
+</body>
+</html>
+      `);
+    });
+  });
+});
+
+/* ---------------- ADMIN ACTIONS ---------------- */
+app.post("/admin/product/:id",requireAdmin,(req,res)=>{
+  const {title,price,active,stock} = req.body;
+  db.run("UPDATE products SET title=?,price=?,active=?,stock=? WHERE id=?",
+    [title,Number(price),Number(active),Number(stock),req.params.id],
+    ()=>res.redirect("/admin")
+  );
+});
+
+// Legg til ny admin
+app.post("/admin/add-admin",requireAdmin,(req,res)=>{
+  const {username,password} = req.body;
+  db.run("INSERT INTO admins (username,password) VALUES (?,?)",[username,password],()=>res.redirect("/admin"));
+});
+
+app.get("/admin/logout",(req,res)=>{ req.session.destroy(()=>res.redirect("/admin/login")); });
+
+/* ---------------- ORDER EXPORT CSV ---------------- */
+app.post("/admin/export",requireAdmin,(req,res)=>{
+  db.all("SELECT * FROM orders",(err,orders)=>{
+    const csvWriter = createObjectCsvWriter({
+      path: "orders_fiken.csv",
+      header:[
+        {id:"id",title:"ORDER_ID"},
+        {id:"email",title:"EMAIL"},
+        {id:"amount",title:"AMOUNT"},
+        {id:"method",title:"PAYMENT"},
+        {id:"status",title:"STATUS"},
+        {id:"created",title:"DATE"}
+      ]
+    });
+    csvWriter.writeRecords(orders).then(()=>{
+      res.download("orders_fiken.csv");
+    });
+  });
+});
+
+/* ---------------- WEBHOOKS ---------------- */
+// Stripe
+app.post("/webhooks/stripe", express.raw({type:"application/json"}),(req,res)=>{
+  const sig = req.headers['stripe-signature'];
+  let event;
+  try{
+    event = stripe.webhooks.constructEvent(req.body,sig,process.env.STRIPE_WEBHOOK_SECRET);
+  }catch(e){return res.status(400).send(`Webhook error: ${e.message}`);}
+  if(event.type==="checkout.session.completed"){
+    const session = event.data.object;
+    markOrderPaid(session.metadata.orderId,"Stripe");
+  }
+  res.json({received:true});
+});
+
+// Vipps
+app.post("/webhooks/vipps", async (req,res)=>{
+  const body = req.body;
+  markOrderPaid(body.reference,"Vipps");
+  res.json({received:true});
+});
+
+/* ---------------- HANDLE ORDRE ---------------- */
+function markOrderPaid(orderId,method){
+  db.get("SELECT * FROM orders WHERE id=?",[orderId],(err,row)=>{
+    if(row && row.status!=="PAID"){
+      db.run("UPDATE orders SET status='PAID', method=? WHERE id=?",[method,orderId]);
+      // Reduser lager
+      db.all("SELECT * FROM products",(err,products)=>{
+        products.forEach(p=>{
+          const newStock = Math.max(0,p.stock-1);
+          db.run("UPDATE products SET stock=? WHERE id=?",[newStock,p.id]);
+        });
+      });
+      // Her kan du sende e-post bekreftelse
+      console.log(`Order ${orderId} markert som PAID via ${method}`);
+    }
+  });
+}
+
+/* ---------------- FRONTEND (ENKEL) ---------------- */
+app.get("/",(req,res)=>{
+  db.all("SELECT * FROM products WHERE active=1",(err,products)=>{
+    res.send(`
+<h1>Vitality Boost</h1>
+<p>🚚 Frakt: 0 kr – Fraktfritt</p>
+<div id="products"></div>
+<input id="email" placeholder="E-post"/>
+<button onclick="buy('Stripe')">Betal med kort</button>
+<button onclick="buy('Vipps')">Betal med Vipps</button>
+
+<script>
+const products=${JSON.stringify(products)};
+let cart=[];
+const el=document.getElementById("products");
+products.forEach(p=>{
+  const d=document.createElement("div");
+  d.innerHTML=\`<strong>\${p.title}</strong> (\${p.price} kr) - Lager: \${p.stock}
+    <button onclick="add(${p.id})">Legg i kurv</button>\`;
+  el.appendChild(d);
+});
+function add(id){
+  const p=products.find(x=>x.id===id);
+  if(p.stock<=0){alert('Utsolgt!'); return;}
+  cart.push(p);
+  alert('Lagt i handlekurv');
+}
+async function buy(method){
+  for(let i=0;i<cart.length;i++){
+    await fetch("/order",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({email:email.value,amount:cart[i].price,method,orderId:'ORD-'+Date.now()})});
+  }
+  alert('Bestilling registrert via '+method);
+}
+</script>
+    `);
+  });
+});
+
+// POST ordre fra frontend
+app.post("/order",(req,res)=>{
+  const {email,amount,method,orderId} = req.body;
+  db.run("INSERT INTO orders VALUES (?,?,?,?,?,?)",
+    [orderId,email,amount,method||"PENDING","PENDING",new Date().toISOString()],
+    ()=>res.json({ok:true}));
+});
+
+/* ---------------- START SERVER ---------------- */
+app.listen(3000,()=>console.log("🚀 Vitality Boost FULL PRODUKSJON KLAR"));
