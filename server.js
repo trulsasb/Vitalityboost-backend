@@ -1,4 +1,4 @@
-js
+
 /*****************************************************************
  * VITALITY BOOST – PRODUKSJON BACKEND
  * Node.js + Express + SQLite + Stripe + Admin
@@ -179,4 +179,5 @@ ${products
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () =>
   console.log("🚀 Vitality Boost server kjører på port", PORT)
+
 );
