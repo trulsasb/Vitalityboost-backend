@@ -5,7 +5,9 @@ from services.stripe_service import StripeService
 
 from services.vipps_service import VippsService
 
-from models import models, database
+import models
+import database
+
 
 
 router = APIRouter()
