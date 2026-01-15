@@ -9,6 +9,11 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="VitalityBoost Backend", version="1.0")
 
+# Root-endpoint (for Render / health-check)
+@app.get("/")
+def root():
+    return {"status": "ok"}
+
 # CORS – tillat frontend fra alle domener (kan begrenses senere)
 app.add_middleware(
     CORSMiddleware,
