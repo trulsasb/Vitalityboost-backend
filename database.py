@@ -2,7 +2,9 @@ import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 
-DATABASE_URL = os.environ["DATABASE_URL"]
+DATABASE_URL = os.environ.get("DATABASE_URL", "")
+print("DATABASE_URL_IN_USE:", DATABASE_URL)
+
 
 DATABASE_URL = DATABASE_URL.replace(
     "postgresql://",
