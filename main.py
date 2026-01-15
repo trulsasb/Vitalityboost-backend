@@ -56,4 +56,5 @@ def status():
 app.include_router(products.router, prefix="/api/products", tags=["Products"])
 app.include_router(cart.router, prefix="/api/cart", tags=["Cart"])
 app.include_router(payments.router, prefix="/api/payments", tags=["Payments"])
-app.include_router_
+include_router
+
