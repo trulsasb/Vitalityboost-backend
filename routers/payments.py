@@ -1,7 +1,8 @@
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
-from ..services.stripe_service import StripeService
+from services.stripe_service import StripeService
+
 from ..services.vipps_service import VippsService
 from models import models, database
 
