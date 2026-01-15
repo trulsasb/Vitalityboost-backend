@@ -5,8 +5,6 @@ from database import engine, Base
 from sqlalchemy.orm import Session
 
 from models.product import Product
-
-
 from routers import products, cart, payments, accounting, admin
 from utils.env import settings
 
@@ -49,20 +47,13 @@ def seed_products():
 seed_products()
 # ----------------------------------------
 
+# ✅ STATUS ENDPOINT (for frontend / Render)
+@app.get("/status")
+def status():
+    return {"status": "ok"}
+
 # Registrer API-ruter
 app.include_router(products.router, prefix="/api/products", tags=["Products"])
 app.include_router(cart.router, prefix="/api/cart", tags=["Cart"])
 app.include_router(payments.router, prefix="/api/payments", tags=["Payments"])
-app.include_router(accounting.router, prefix="/api/accounting", tags=["Accounting"])
-app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
-
-# Helse-sjekk
-@app.get("/products")
-def get_products():
-    return [
-        {"id": 1, "name": "Testprodukt", "price": 199},
-        {"id": 2, "name": "Energi Booster", "price": 299},
-    ]
-
-
-
+app.include_router_
