@@ -57,10 +57,12 @@ app.include_router(accounting.router, prefix="/api/accounting", tags=["Accountin
 app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
 
 # Helse-sjekk
-@app.get("/status")
-def status():
-    return {"status": "ok"}
+@app.get("/products")
+def get_products():
+    return [
+        {"id": 1, "name": "Testprodukt", "price": 199},
+        {"id": 2, "name": "Energi Booster", "price": 299},
+    ]
 
-    }
 
 
