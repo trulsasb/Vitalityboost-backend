@@ -1,6 +1,13 @@
 from sqlalchemy import (
-    Column, Integer, String, Float, Boolean,
-    DateTime, ForeignKey, JSON, Text
+    Column,
+    Integer,
+    String,
+    Float,
+    Boolean,
+    DateTime,
+    ForeignKey,
+    JSON,
+    Text,
 )
 from sqlalchemy.orm import relationship
 from database import Base
@@ -14,7 +21,7 @@ class Product(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
-    price = Column(Float, nullable=False)
+    price = Column(Float, nullable=False)  # Pris inkl. 25 % mva (uspesifisert)
     stock = Column(Integer, default=0)
     active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -45,7 +52,7 @@ class Order(Base):
     customer_email = Column(String(255), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
-    items = relationship("OrderItem", back_populates="order")
+    items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
 
 
 class OrderItem(Base):
@@ -82,4 +89,8 @@ class AccountingIntegration(Base):
     active = Column(Boolean, default=False)
     test_mode = Column(Boolean, default=True)
     last_sync = Column(DateTime, nullable=True)
-    config = Column(JSON, nullable
+
+    # 🔴 HER VAR FEILEN – parentes manglet
+    # ✅ Bruk default=dict (ikke {}) for sikker JSON-håndtering
+    config = Column(JSON, nullable=True, default=dict)
+
