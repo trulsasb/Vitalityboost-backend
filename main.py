@@ -17,7 +17,7 @@ app = FastAPI(
 # CORS – åpen for frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # stram inn senere
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -47,14 +47,13 @@ def seed_products():
 seed_products()
 # ----------------------------------------
 
-# ✅ STATUS ENDPOINT (for frontend / Render)
+# ✅ STATUS ENDPOINT (brukes av frontend / Render)
 @app.get("/status")
 def status():
     return {"status": "ok"}
 
-# Registrer API-ruter
+# Registrer API-ruter (KORREKT METODE)
 app.include_router(products.router, prefix="/api/products", tags=["Products"])
 app.include_router(cart.router, prefix="/api/cart", tags=["Cart"])
 app.include_router(payments.router, prefix="/api/payments", tags=["Payments"])
-include_router
-
+app.include_router(accountin_
