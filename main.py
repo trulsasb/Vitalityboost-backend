@@ -4,7 +4,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from database import engine, Base
 from sqlalchemy.orm import Session
 
-from models.models import Product
+from models.product import Product
+
 from routers import products, cart, payments, accounting, admin
 from utils.env import settings
 
