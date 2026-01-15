@@ -59,9 +59,8 @@ app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
 # Helse-sjekk
 @app.get("/status")
 def status():
-    return {
-        "status": "ok",
-        "mode": settings.APP_MODE
+    return {"status": "ok"}
+
     }
 
 
