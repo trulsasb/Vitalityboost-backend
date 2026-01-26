@@ -6,6 +6,7 @@ from models import Product, Order, OrderItem
 
 
 from services.vipps_service import VippsService
+from pydantic import BaseModel
 
 import models
 import database
