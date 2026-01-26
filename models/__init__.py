@@ -1,1 +1,2 @@
-# tom
+from .product import Product
+
