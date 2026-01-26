@@ -24,7 +24,7 @@ class Product(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
-    price = Column(Float, nullable=False)  # Pris inkl. 25 % MVA
+    price = Column(Float, nullable=False)
     stock = Column(Integer, default=0)
     active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -61,7 +61,11 @@ class Order(Base):
     customer_email = Column(String(255), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
-    items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
+    items = relationship(
+        "OrderItem",
+        back_populates="order",
+        cascade="all, delete-orphan"
+    )
 
 
 # -----------------------------
