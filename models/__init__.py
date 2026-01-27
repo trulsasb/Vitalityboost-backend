@@ -1,10 +1,13 @@
 from .product import (
     Product,
     CartItem,
-    Order,
-    OrderItem,
     User,
     AccountingIntegration,
+)
+
+from .order import (
+    Order,
+    OrderItem,
 )
 
 
