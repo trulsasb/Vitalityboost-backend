@@ -12,10 +12,11 @@ from routers import (
     stripe_initiate,
     stripe_webhook,
 )
+app = FastAPI()
 @app.get("/")
 def health():
     return {"status": "ok"}
-
+    
 # Payment engine + handlers
 from payments.engine import PaymentEngine
 from payments.vipps_handler import VippsHandler
@@ -24,8 +25,6 @@ from models.payment import PaymentProvider
 
 # Create DB tables
 Base.metadata.create_all(bind=engine)
-
-app = FastAPI()
 
 # -----------------------------
 # Vipps configuration
