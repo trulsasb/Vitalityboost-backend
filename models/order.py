@@ -1,8 +1,7 @@
 from sqlalchemy import Column, Integer, String, DateTime, Enum, JSON
 from datetime import datetime
 from enum import Enum as PyEnum
-from models import Base
-
+from database import Base
 
 class OrderStatus(str, PyEnum):
     PENDING_PAYMENT = "pending_payment"
