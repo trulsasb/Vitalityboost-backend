@@ -2,8 +2,7 @@ from sqlalchemy import Column, Integer, DateTime, Enum, ForeignKey, JSON
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from enum import Enum as PyEnum
-from models import Base
-
+from database import Base
 
 class PaymentEventType(str, PyEnum):
     INITIATED = "payment_initiated"
