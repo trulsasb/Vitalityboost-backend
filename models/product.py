@@ -14,13 +14,11 @@ from database import Base
 from datetime import datetime
 
 
-# --- Produktrelaterte tabeller ---
 class Product(Base):
     __tablename__ = "products"
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(255), nullable=False)
-    description = Column(Text, nullable=True)
     price = Column(Float, nullable=False)
     stock = Column(Integer, default=0)
     active = Column(Boolean, default=True)
@@ -29,7 +27,6 @@ class Product(Base):
     cart_items = relationship("CartItem", back_populates="product")
 
 
-# --- Handlekurv ---
 class CartItem(Base):
     __tablename__ = "cart_items"
 
@@ -41,7 +38,6 @@ class CartItem(Base):
     product = relationship("Product", back_populates="cart_items")
 
 
-# --- Bruker / Admin ---
 class User(Base):
     __tablename__ = "users"
 
@@ -52,7 +48,6 @@ class User(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
-# --- Regnskap og integrasjoner ---
 class AccountingIntegration(Base):
     __tablename__ = "accounting_integrations"
 
