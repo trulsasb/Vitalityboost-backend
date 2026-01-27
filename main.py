@@ -5,7 +5,6 @@ from database import Base, engine, get_db
 from routers import (
     products,
     cart,
-    payments,
     accounting,
     admin,
     vipps_initiate,
@@ -33,7 +32,7 @@ vipps_handler = VippsHandler(
     client_secret="YOUR_VIPPS_CLIENT_SECRET",
     subscription_key="YOUR_VIPPS_SUBSCRIPTION_KEY",
     merchant_serial_number="YOUR_MSN",
-    base_url="https://apitest.vipps.no"  # change to production later
+    base_url="https://apitest.vipps.no"
 )
 
 # -----------------------------
@@ -60,7 +59,6 @@ payment_engine = PaymentEngine(
 # -----------------------------
 app.include_router(products.router)
 app.include_router(cart.router)
-app.include_router(payments.router)
 app.include_router(accounting.router)
 app.include_router(admin.router)
 
