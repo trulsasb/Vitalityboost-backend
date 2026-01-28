@@ -3,8 +3,7 @@ from payments.engine import PaymentEngine
 from models.payment import PaymentProvider
 import stripe
 
-router = APIRouter(prefix="/webhooks/stripe", tags=["stripe-webhook"])
-
+router = APIRouter()
 
 def get_engine() -> PaymentEngine:
     """
