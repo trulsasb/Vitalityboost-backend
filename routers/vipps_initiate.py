@@ -6,8 +6,7 @@ from models.order import Order
 from models.payment import PaymentProvider, Payment
 from payments.engine import PaymentEngine
 
-router = APIRouter(prefix="/payments/vipps", tags=["vipps-initiate"])
-
+router = APIRouter()
 
 def get_engine() -> PaymentEngine:
     """
