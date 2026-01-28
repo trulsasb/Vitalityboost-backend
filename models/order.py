@@ -1,8 +1,10 @@
-from sqlalchemy import Column, Integer, String, DateTime, Enum, JSON, Float, ForeignKey
+from sqlalchemy import Column, Integer, String, DateTime, Enum, Float, ForeignKey
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from enum import Enum as PyEnum
+
 from database import Base
+
 
 class OrderStatus(str, PyEnum):
     PENDING_PAYMENT = "pending_payment"
@@ -16,14 +18,21 @@ class Order(Base):
     __tablename__ = "orders"
 
     id = Column(Integer, primary_key=True, index=True)
-    session_id = Column(String, index=True)
+    # session_id fjernet for å matche eksisterende database
     total_amount = Column(Integer)
     currency = Column(String, default="NOK")
     status = Column(Enum(OrderStatus), default=OrderStatus.PENDING_PAYMENT)
     created_at = Column(DateTime, default=datetime.utcnow)
 
-    items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
-    payments = relationship("Payment", back_populates="order")
+    items = relationship(
+        "OrderItem",
+        back_populates="order",
+        cascade="all, delete-orphan",
+    )
+    payments = relationship(
+        "Payment",
+        back_populates="order",
+    )
 
 
 class OrderItem(Base):
