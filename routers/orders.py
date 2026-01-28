@@ -1,16 +1,19 @@
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
+from typing import List
+from pydantic import BaseModel
 
 from database import get_db
 from models.order import Order, OrderItem, OrderStatus
 from models.product import Product
 
-from pydantic import BaseModel
-from typing import List
-
 
 router = APIRouter(prefix="/orders", tags=["Orders"])
 
+
+# -----------------------------
+#   SCHEMAS
+# -----------------------------
 
 class OrderItemCreate(BaseModel):
     product_id: int
@@ -20,6 +23,10 @@ class OrderItemCreate(BaseModel):
 class OrderCreate(BaseModel):
     items: List[OrderItemCreate]
 
+
+# -----------------------------
+#   CREATE ORDER
+# -----------------------------
 
 @router.post("/", response_model=dict)
 def create_order(payload: OrderCreate, db: Session = Depends(get_db)):
@@ -60,6 +67,10 @@ def create_order(payload: OrderCreate, db: Session = Depends(get_db)):
         "status": order.status,
     }
 
+
+# -----------------------------
+#   GET ORDER
+# -----------------------------
 
 @router.get("/{order_id}", response_model=dict)
 def get_order(order_id: int, db: Session = Depends(get_db)):
