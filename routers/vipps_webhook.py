@@ -2,8 +2,7 @@ from fastapi import APIRouter, Request, Depends
 from payments.engine import PaymentEngine
 from models.payment import PaymentProvider
 
-router = APIRouter(prefix="/webhooks/vipps", tags=["vipps-webhook"])
-
+router = APIRouter()
 
 def get_engine() -> PaymentEngine:
     """
