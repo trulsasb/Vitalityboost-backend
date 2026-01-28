@@ -1,4 +1,8 @@
 from fastapi import FastAPI
+from payments.engine import PaymentEngine
+
+# Initialize payment engine BEFORE routers are imported
+payment_engine = PaymentEngine()
 
 # Routers
 from routers import (
@@ -18,7 +22,6 @@ app = FastAPI()
 @app.get("/")
 def health():
     return {"status": "ok"}
-
 
 # -----------------------------
 #   ROUTER MOUNTING
