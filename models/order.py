@@ -23,6 +23,7 @@ class Order(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
+    payments = relationship("Payment", back_populates="order")
 
 
 class OrderItem(Base):
