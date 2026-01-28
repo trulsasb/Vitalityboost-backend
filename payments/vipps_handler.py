@@ -53,7 +53,11 @@ class VippsHandler:
         }
 
         response = requests.post(url, json=payload, headers=headers)
-        response.raise_for_status()
+       try:
+    response.raise_for_status()
+except Exception:
+    print("VIPPS ERROR:", response.text)
+    raise
 
         data = response.json()
 
