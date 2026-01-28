@@ -32,4 +32,24 @@ def create_order(payload: OrderCreate, db: Session = Depends(get_db)):
             order_id=order.id,
             product_id=item.product_id,
             quantity=item.quantity,
-            price
+            price=product.price
+        )
+        db.add(order_item)
+
+        total_amount += product.price * item.quantity
+
+    order.total_amount = total_amount
+    db.commit()
+    db.refresh(order)
+
+    return order
+
+# -----------------------------
+#   GET ORDER BY ID
+# -----------------------------
+@router.get("/{order_id}", response_model=OrderResponse)
+def get_order(order_id: int, db: Session = Depends(get_db)):
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    return order
