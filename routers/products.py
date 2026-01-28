@@ -12,24 +12,22 @@ router = APIRouter()
 # -----------------------------
 #   SCHEMAS
 # -----------------------------
+class ProductIn(BaseModel):
+    name: str
+    price: float
+    stock: int = 0
+    active: bool = True
+
+
 class ProductOut(BaseModel):
     id: int
     name: str
-    description: str | None
     price: float
     stock: int
     active: bool
 
     class Config:
         orm_mode = True
-
-
-class ProductIn(BaseModel):
-    name: str
-    description: str | None = None
-    price: float
-    stock: int = 0
-    active: bool = True
 
 
 # -----------------------------
