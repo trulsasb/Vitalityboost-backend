@@ -36,10 +36,11 @@ def initiate_vipps_payment(order_id: int, db: Session = Depends(get_db), engine:
 
     # Initiate Vipps payment
     result = engine.initiate_payment(
-        provider=PaymentProvider.VIPPS,
-        order=order,
-        return_url="https://vitalityboost.no/checkout/complete"  # adjust later
-    )
+     provider=PaymentProvider.VIPPS,
+     order=order,
+     return_url="https://vitalityboost.no/checkout/complete"
+)
+
 
     return {
         "redirect_url": result["redirect_url"],
