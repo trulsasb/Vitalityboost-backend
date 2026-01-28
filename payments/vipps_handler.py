@@ -52,14 +52,15 @@ class VippsHandler:
             },
         }
 
-        response = requests.post(url, json=payload, headers=headers)
-       try:
+       response = requests.post(url, json=payload, headers=headers)
+
+try:
     response.raise_for_status()
 except Exception:
     print("VIPPS ERROR:", response.text)
     raise
 
-        data = response.json()
+data = response.json()
 
         return {
             "provider": PaymentProvider.VIPPS,
