@@ -2,20 +2,22 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from database import get_db
-from models.order import Order, OrderItem, OrderStatus
-from models.product import Product
 from schemas.order import OrderCreate, OrderResponse
+from models.order import Order, OrderItem
+from models.product import Product
 
 router = APIRouter()
 
+# -----------------------------
+#   CREATE ORDER
+# -----------------------------
+@router.post("/", response_model=OrderResponse)
+def create_order(payload: OrderCreate, db: Session = Depends(get_db)):
+    if not payload.items:
+        raise HTTPException(status_code=400, detail="Order must contain at least one item")
 
-@router.post("/orders", response_model=OrderResponse)
-def create_order(order_data: OrderCreate, db: Session = Depends(get_db)):
-    # Opprett selve ordren
-    order = Order(
-        total_amount=0,
-        status=OrderStatus.PENDING_PAYMENT
-    )
+    # Opprett ordre
+    order = Order(status="pending_payment", total_amount=0)
     db.add(order)
     db.commit()
     db.refresh(order)
@@ -23,10 +25,10 @@ def create_order(order_data: OrderCreate, db: Session = Depends(get_db)):
     total_amount = 0
 
     # Legg til order items
-    for item in order_data.items:
+    for item in payload.items:
         product = db.query(Product).filter(Product.id == item.product_id).first()
         if not product:
-            raise HTTPException(status_code=404, detail="Product not found")
+            raise HTTPException(status_code=404, detail=f"Product {item.product_id} not found")
 
         order_item = OrderItem(
             order_id=order.id,
@@ -45,8 +47,10 @@ def create_order(order_data: OrderCreate, db: Session = Depends(get_db)):
 
     return order
 
-
-@router.get("/orders/{order_id}", response_model=OrderResponse)
+# -----------------------------
+#   GET ORDER BY ID
+# -----------------------------
+@router.get("/{order_id}", response_model=OrderResponse)
 def get_order(order_id: int, db: Session = Depends(get_db)):
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
