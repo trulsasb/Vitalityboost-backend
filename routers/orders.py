@@ -2,50 +2,37 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from database import get_db
+from models.order import Order, OrderItem, OrderStatus
 from schemas.order import (
     OrderCreate,
     OrderResponse,
-    OrderStatusUpdate
+    OrderStatusUpdate,
 )
-from models.order import Order, OrderItem
-from models.product import Product
 
 router = APIRouter()
 
 
-# -----------------------------
-#   CREATE ORDER
-# -----------------------------
-@router.post("/", response_model=OrderResponse)
-def create_order(payload: OrderCreate, db: Session = Depends(get_db)):
-    if not payload.items:
-        raise HTTPException(status_code=400, detail="Order must contain at least one item")
-
-    # Create order
-    order = Order(status="pending_payment", total_amount=0)
+@router.post("/orders", response_model=OrderResponse)
+def create_order(order_data: OrderCreate, db: Session = Depends(get_db)):
+    order = Order()
     db.add(order)
     db.commit()
     db.refresh(order)
 
     total_amount = 0
 
-    # Add order items
-    for item in payload.items:
-        product = db.query(Product).filter(Product.id == item.product_id).first()
-        if not product:
-            raise HTTPException(status_code=404, detail=f"Product {item.product_id} not found")
+    for item in order_data.items:
+        price = 499  # midlertidig pris, du kan hente fra DB senere
+        total_amount += price * item.quantity
 
         order_item = OrderItem(
             order_id=order.id,
             product_id=item.product_id,
             quantity=item.quantity,
-            price_at_purchase=product.price
+            price_at_purchase=price,
         )
         db.add(order_item)
 
-        total_amount += product.price * item.quantity
-
-    # Update total amount
     order.total_amount = total_amount
     db.commit()
     db.refresh(order)
@@ -53,10 +40,7 @@ def create_order(payload: OrderCreate, db: Session = Depends(get_db)):
     return order
 
 
-# -----------------------------
-#   GET ORDER BY ID
-# -----------------------------
-@router.get("/{order_id}", response_model=OrderResponse)
+@router.get("/orders/{order_id}", response_model=OrderResponse)
 def get_order(order_id: int, db: Session = Depends(get_db)):
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
@@ -64,16 +48,13 @@ def get_order(order_id: int, db: Session = Depends(get_db)):
     return order
 
 
-# -----------------------------
-#   UPDATE ORDER STATUS
-# -----------------------------
-@router.patch("/{order_id}/status", response_model=OrderResponse)
-def update_order_status(order_id: int, payload: OrderStatusUpdate, db: Session = Depends(get_db)):
+@router.put("/orders/{order_id}/status", response_model=OrderResponse)
+def update_order_status(order_id: int, status_update: OrderStatusUpdate, db: Session = Depends(get_db)):
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
-    order.status = payload.status
+    order.status = status_update.status
     db.commit()
     db.refresh(order)
 
