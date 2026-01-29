@@ -28,12 +28,13 @@ def create_order(payload: OrderCreate, db: Session = Depends(get_db)):
         if not product:
             raise HTTPException(status_code=404, detail=f"Product {item.product_id} not found")
 
-        order_item = OrderItem(
-            order_id=order.id,
-            product_id=item.product_id,
-            quantity=item.quantity,
-            price=product.price
-        )
+    order_item = OrderItem(
+        order_id=order.id,
+        product_id=item.product_id,
+        quantity=item.quantity,
+        price_at_purchase=product.price
+     )
+
         db.add(order_item)
 
         total_amount += product.price * item.quantity
