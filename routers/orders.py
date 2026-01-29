@@ -2,11 +2,16 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from database import get_db
-from schemas.order import OrderCreate, OrderResponse
+from schemas.order import (
+    OrderCreate,
+    OrderResponse,
+    OrderStatusUpdate
+)
 from models.order import Order, OrderItem
 from models.product import Product
 
 router = APIRouter()
+
 
 # -----------------------------
 #   CREATE ORDER
@@ -16,7 +21,7 @@ def create_order(payload: OrderCreate, db: Session = Depends(get_db)):
     if not payload.items:
         raise HTTPException(status_code=400, detail="Order must contain at least one item")
 
-    # Opprett ordre
+    # Create order
     order = Order(status="pending_payment", total_amount=0)
     db.add(order)
     db.commit()
@@ -24,7 +29,7 @@ def create_order(payload: OrderCreate, db: Session = Depends(get_db)):
 
     total_amount = 0
 
-    # Legg til order items
+    # Add order items
     for item in payload.items:
         product = db.query(Product).filter(Product.id == item.product_id).first()
         if not product:
@@ -40,12 +45,13 @@ def create_order(payload: OrderCreate, db: Session = Depends(get_db)):
 
         total_amount += product.price * item.quantity
 
-    # Oppdater total_amount
+    # Update total amount
     order.total_amount = total_amount
     db.commit()
     db.refresh(order)
 
     return order
+
 
 # -----------------------------
 #   GET ORDER BY ID
@@ -55,4 +61,20 @@ def get_order(order_id: int, db: Session = Depends(get_db)):
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
+    return order
+
+
+# -----------------------------
+#   UPDATE ORDER STATUS
+# -----------------------------
+@router.patch("/{order_id}/status", response_model=OrderResponse)
+def update_order_status(order_id: int, payload: OrderStatusUpdate, db: Session = Depends(get_db)):
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    order.status = payload.status
+    db.commit()
+    db.refresh(order)
+
     return order
