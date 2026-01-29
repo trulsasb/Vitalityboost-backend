@@ -4,7 +4,7 @@ from enum import Enum
 
 
 # -----------------------------
-#   ENUM MATCHING DB MODEL
+#   ENUM (MATCHES DB MODEL)
 # -----------------------------
 class OrderStatus(str, Enum):
     pending_payment = "pending_payment"
@@ -46,3 +46,10 @@ class OrderResponse(BaseModel):
 
     class Config:
         orm_mode = True
+
+
+# -----------------------------
+#   UPDATE STATUS SCHEMA
+# -----------------------------
+class OrderStatusUpdate(BaseModel):
+    status: OrderStatus
