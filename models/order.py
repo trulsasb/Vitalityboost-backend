@@ -1,55 +1,46 @@
-from pydantic import BaseModel
-from typing import List
-from enum import Enum
+from sqlalchemy import Column, Integer, DateTime, Enum, Float, ForeignKey
+from sqlalchemy.orm import relationship
+from datetime import datetime
+from enum import Enum as PyEnum
+
+from database import Base
 
 
-# -----------------------------
-#   ENUM (MATCHES DB MODEL)
-# -----------------------------
-class OrderStatus(str, Enum):
-    pending_payment = "pending_payment"
-    paid = "paid"
-    shipped = "shipped"
-    completed = "completed"
-    cancelled = "cancelled"
+class OrderStatus(str, PyEnum):
+    PENDING_PAYMENT = "pending_payment"
+    AUTHORIZED = "authorized"
+    PAID = "paid"
+    FAILED = "failed"
+    REFUNDED = "refunded"
 
 
-# -----------------------------
-#   CREATE SCHEMAS
-# -----------------------------
-class OrderItemCreate(BaseModel):
-    product_id: int
-    quantity: int
+class Order(Base):
+    __tablename__ = "orders"
+
+    id = Column(Integer, primary_key=True, index=True)
+    total_amount = Column(Float, nullable=False, default=0)
+    status = Column(Enum(OrderStatus), default=OrderStatus.PENDING_PAYMENT)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    items = relationship(
+        "OrderItem",
+        back_populates="order",
+        cascade="all, delete-orphan",
+    )
+
+    payments = relationship(
+        "Payment",
+        back_populates="order",
+    )
 
 
-class OrderCreate(BaseModel):
-    items: List[OrderItemCreate]
+class OrderItem(Base):
+    __tablename__ = "order_items"
 
+    id = Column(Integer, primary_key=True)
+    order_id = Column(Integer, ForeignKey("orders.id"), nullable=False)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
+    quantity = Column(Integer, nullable=False)
+    price_at_purchase = Column(Float, nullable=False)
 
-# -----------------------------
-#   RESPONSE SCHEMAS
-# -----------------------------
-class OrderItemResponse(BaseModel):
-    product_id: int
-    quantity: int
-    price_at_purchase: float
-
-    class Config:
-        orm_mode = True
-
-
-class OrderResponse(BaseModel):
-    id: int
-    total_amount: float | None = None
-    status: OrderStatus
-    items: List[OrderItemResponse]
-
-    class Config:
-        orm_mode = True
-
-
-# -----------------------------
-#   UPDATE STATUS SCHEMA
-# -----------------------------
-class OrderStatusUpdate(BaseModel):
-    status: OrderStatus
+    order = relationship("Order", back_populates="items")
