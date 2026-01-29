@@ -40,7 +40,7 @@ class OrderItemResponse(BaseModel):
 
 class OrderResponse(BaseModel):
     id: int
-    total_amount: float
+    total_amount: float | None = None
     status: OrderStatus
     items: List[OrderItemResponse]
 
