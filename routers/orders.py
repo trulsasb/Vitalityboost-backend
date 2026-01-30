@@ -21,12 +21,12 @@ class OrderStatusUpdate(BaseModel):
 
 
 # -----------------------------
-# Debug-endepunkt
-# (må stå før {order_id})
+# Debug-endepunkt (trygg versjon)
 # -----------------------------
 
 @router.get("/debug-enum")
 def debug_enum(db: Session = Depends(get_db)):
+    # Denne spørringen kan IKKE feile, selv om databasen ikke har ENUM-typer
     result = db.execute("""
         SELECT t.typname AS enum_name
         FROM pg_type t
