@@ -1,44 +1,18 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, HTTPException
 from sqlalchemy.orm import Session
-from typing import List
-
+from fastapi import Depends
 from database import get_db
-from models import Product
-from pydantic import BaseModel
+from models.product import Product
 
-router = APIRouter()
-
-
-# -----------------------------
-#   SCHEMAS
-# -----------------------------
-class ProductIn(BaseModel):
-    name: str
-    price: float
-    stock: int = 0
-    active: bool = True
+router = APIRouter(prefix="/products", tags=["Products"])
 
 
-class ProductOut(BaseModel):
-    id: int
-    name: str
-    price: float
-    stock: int
-    active: bool
-
-    class Config:
-        orm_mode = True
-
-
-# -----------------------------
-#   ROUTES
-# -----------------------------
-@router.get("/", response_model=List[ProductOut])
+@router.get("/")
 def list_products(db: Session = Depends(get_db)):
     return db.query(Product).filter(Product.active == True).all()
 
 
-@router.get("/{product_id}", response_model=ProductOut)
+@router.get("/{product_id}")
 def get_product(product_id: int, db: Session = Depends(get_db)):
     product = db.query(Product).filter(Product.id == product_id).first()
     if not product:
@@ -46,10 +20,35 @@ def get_product(product_id: int, db: Session = Depends(get_db)):
     return product
 
 
-@router.post("/", response_model=ProductOut)
-def create_product(data: ProductIn, db: Session = Depends(get_db)):
-    product = Product(**data.dict())
+@router.post("/")
+def create_product(data: dict, db: Session = Depends(get_db)):
+    product = Product(**data)
     db.add(product)
     db.commit()
     db.refresh(product)
     return product
+
+
+@router.put("/{product_id}")
+def update_product(product_id: int, data: dict, db: Session = Depends(get_db)):
+    product = db.query(Product).filter(Product.id == product_id).first()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    for key, value in data.items():
+        setattr(product, key, value)
+
+    db.commit()
+    db.refresh(product)
+    return product
+
+
+@router.delete("/{product_id}")
+def delete_product(product_id: int, db: Session = Depends(get_db)):
+    product = db.query(Product).filter(Product.id == product_id).first()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    db.delete(product)
+    db.commit()
+    return {"detail": "Product deleted"}
