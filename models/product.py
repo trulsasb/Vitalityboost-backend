@@ -9,7 +9,7 @@ from sqlalchemy import (
     JSON,
 )
 from sqlalchemy.orm import relationship
-from database import Base
+from models.base import Base
 from datetime import datetime
 
 
