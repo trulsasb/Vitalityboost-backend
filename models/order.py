@@ -1,5 +1,5 @@
-from sqlalchemy import Column, Integer, Float, String
-from sqlalchemy.orm import relationship
+from sqlalchemy import Column, Integer, Float, String, DateTime
+from datetime import datetime
 from models.base import Base
 
 
@@ -9,5 +9,5 @@ class Order(Base):
     id = Column(Integer, primary_key=True, index=True)
     total_amount = Column(Float, nullable=False)
     status = Column(String, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
 
-    # Ingen relationship til OrderItem – den modellen finnes ikke lenger
