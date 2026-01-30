@@ -10,4 +10,9 @@ from .order import (
     OrderItem,
 )
 
+from .payment import (
+    Payment,
+    PaymentEvent,
+)
+
 
