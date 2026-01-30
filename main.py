@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from database import engine, Base
-from routers import products, cart
+from routers import products, cart, orders
 
 # Opprett tabeller hvis de ikke finnes
 Base.metadata.create_all(bind=engine)
@@ -24,6 +24,7 @@ app.add_middleware(
 # Routers
 app.include_router(products.router)
 app.include_router(cart.router)
+app.include_router(orders.router)
 
 @app.get("/")
 def root():
