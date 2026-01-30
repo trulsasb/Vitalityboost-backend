@@ -21,16 +21,32 @@ class OrderStatusUpdate(BaseModel):
 
 
 # -----------------------------
-# Debug-endepunkt (MÅ stå før {order_id})
+# Debug-endepunkt
+# (må stå før {order_id})
 # -----------------------------
 
 @router.get("/debug-enum")
 def debug_enum(db: Session = Depends(get_db)):
-    # Trygg ENUM-inspeksjon som ikke kan feile
-    result = db.execute(
-        "SELECT typname FROM pg_type WHERE typtype = 'e'"
-    ).fetchall()
-    return {"enum_types": [row[0] for row in result]}
+    result = db.execute("""
+        SELECT n.nspname AS enum_schema,
+               t.typname AS enum_name,
+               e.enumlabel AS enum_value
+        FROM pg_type t
+        JOIN pg_enum e ON t.oid = e.enumtypid
+        JOIN pg_catalog.pg_namespace n ON n.oid = t.typnamespace
+        ORDER BY enum_schema, enum_name, e.enumsortorder;
+    """).fetchall()
+
+    return {
+        "enums": [
+            {
+                "schema": row[0],
+                "name": row[1],
+                "value": row[2]
+            }
+            for row in result
+        ]
+    }
 
 
 # -----------------------------
