@@ -34,6 +34,8 @@ def debug_enum(db: Session = Depends(get_db)):
     """)).fetchall()
 
     return {"enum_types": [row[0] for row in result]}
+
+
 @router.get("/debug-enum-values")
 def debug_enum_values(db: Session = Depends(get_db)):
     result = db.execute(text("""
@@ -45,6 +47,19 @@ def debug_enum_values(db: Session = Depends(get_db)):
     """)).fetchall()
 
     return {"orderstatus_values": [row[0] for row in result]}
+
+
+# -----------------------------
+# Gyldige statuser (validering)
+# -----------------------------
+
+VALID_STATUSES = {
+    "PENDING_PAYMENT",
+    "AUTHORIZED",
+    "PAID",
+    "FAILED",
+    "REFUNDED"
+}
 
 
 # -----------------------------
@@ -78,6 +93,12 @@ def get_order(order_id: int, db: Session = Depends(get_db)):
 
 @router.put("/{order_id}/status")
 def update_order_status(order_id: int, payload: OrderStatusUpdate, db: Session = Depends(get_db)):
+    if payload.status not in VALID_STATUSES:
+        return {
+            "error": f"Invalid status '{payload.status}'. "
+                     f"Must be one of: {', '.join(VALID_STATUSES)}"
+        }
+
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         return {"error": "Order not found"}
