@@ -32,3 +32,13 @@ class Payment(Base):
     # relationships
     order = relationship("Order", back_populates="payments")
     events = relationship("PaymentEvent", back_populates="payment")
+class PaymentEvent(Base):
+    __tablename__ = "payment_events"
+
+    id = Column(Integer, primary_key=True, index=True)
+    payment_id = Column(Integer, ForeignKey("payments.id"))
+    event_type = Column(String)  # f.eks. "initiated", "callback_received", "captured"
+    raw_data = Column(String, nullable=True)  # JSON fra Vipps/Stripe
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    payment = relationship("Payment", back_populates="events")
