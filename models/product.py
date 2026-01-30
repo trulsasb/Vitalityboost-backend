@@ -7,7 +7,6 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     JSON,
-    Text,
 )
 from sqlalchemy.orm import relationship
 from database import Base
@@ -24,7 +23,9 @@ class Product(Base):
     active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
+    # relationships
     cart_items = relationship("CartItem", back_populates="product")
+    order_items = relationship("OrderItem", back_populates="product")
 
 
 class CartItem(Base):
