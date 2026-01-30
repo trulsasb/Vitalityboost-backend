@@ -1,118 +1,39 @@
-from fastapi import APIRouter, Depends
-from pydantic import BaseModel
+from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
-from sqlalchemy import text
-
 from database import get_db
-from models.order import Order
+from models.product import CartItem, Product
+from models.order import Order, OrderItem  # du får denne filen av meg etterpå
 
 router = APIRouter(prefix="/orders", tags=["Orders"])
 
 
-# -----------------------------
-# Pydantic-skjemaer
-# -----------------------------
-
-class OrderCreate(BaseModel):
-    total_amount: float
-
-
-class OrderStatusUpdate(BaseModel):
-    status: str
-
-
-# -----------------------------
-# Debug-endepunkt (SQLAlchemy 2.0-kompatibel)
-# -----------------------------
-
-@router.get("/debug-enum")
-def debug_enum(db: Session = Depends(get_db)):
-    result = db.execute(text("""
-        SELECT t.typname AS enum_name
-        FROM pg_type t
-        WHERE t.typtype = 'e';
-    """)).fetchall()
-
-    return {"enum_types": [row[0] for row in result]}
-
-
-@router.get("/debug-enum-values")
-def debug_enum_values(db: Session = Depends(get_db)):
-    result = db.execute(text("""
-        SELECT e.enumlabel
-        FROM pg_enum e
-        JOIN pg_type t ON e.enumtypid = t.oid
-        WHERE t.typname = 'orderstatus'
-        ORDER BY e.enumsortorder;
-    """)).fetchall()
-
-    return {"orderstatus_values": [row[0] for row in result]}
-
-
-# -----------------------------
-# Gyldige statuser (validering)
-# -----------------------------
-
-VALID_STATUSES = {
-    "PENDING_PAYMENT",
-    "AUTHORIZED",
-    "PAID",
-    "FAILED",
-    "REFUNDED"
-}
-
-
-# -----------------------------
-# Endepunkter
-# -----------------------------
-
-@router.post("/")
-def create_order(payload: OrderCreate, db: Session = Depends(get_db)):
-    order = Order(
-        total_amount=payload.total_amount,
-        status="PENDING_PAYMENT"
+@router.post("/{session_id}")
+def create_order(session_id: str, db: Session = Depends(get_db)):
+    cart_items = (
+        db.query(CartItem)
+        .filter(CartItem.session_id == session_id)
+        .all()
     )
+
+    if not cart_items:
+        raise HTTPException(status_code=400, detail="Cart is empty")
+
+    order = Order()
     db.add(order)
     db.commit()
     db.refresh(order)
-    return order
 
+    for item in cart_items:
+        order_item = OrderItem(
+            order_id=order.id,
+            product_id=item.product_id,
+            quantity=item.quantity,
+        )
+        db.add(order_item)
 
-@router.get("/")
-def list_orders(status: str | None = None, db: Session = Depends(get_db)):
-    query = db.query(Order)
+    db.query(CartItem).filter(
+        CartItem.session_id == session_id
+    ).delete()
 
-    if status:
-        if status not in VALID_STATUSES:
-            return {
-                "error": f"Invalid status '{status}'. Must be one of: {', '.join(VALID_STATUSES)}"
-            }
-        query = query.filter(Order.status == status)
-
-    return query.all()
-
-
-@router.get("/{order_id}")
-def get_order(order_id: int, db: Session = Depends(get_db)):
-    order = db.query(Order).filter(Order.id == order_id).first()
-    if not order:
-        return {"error": "Order not found"}
-    return order
-
-
-@router.put("/{order_id}/status")
-def update_order_status(order_id: int, payload: OrderStatusUpdate, db: Session = Depends(get_db)):
-    if payload.status not in VALID_STATUSES:
-        return {
-            "error": f"Invalid status '{payload.status}'. "
-                     f"Must be one of: {', '.join(VALID_STATUSES)}"
-        }
-
-    order = db.query(Order).filter(Order.id == order_id).first()
-    if not order:
-        return {"error": "Order not found"}
-
-    order.status = payload.status
     db.commit()
-    db.refresh(order)
-    return order
+    return {"order_id": order.id, "status": "created"}
