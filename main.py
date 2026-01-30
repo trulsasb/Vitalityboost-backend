@@ -23,7 +23,6 @@ stripe_handler = StripeHandler()
 
 app.include_router(products.router, prefix="/products", tags=["Products"])
 app.include_router(orders.router, prefix="/orders", tags=["Orders"])
-app.include_router(payments.router, prefix="/payments", tags=["Payments"])
 
 @app.get("/")
 def root():
