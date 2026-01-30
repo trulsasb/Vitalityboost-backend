@@ -10,6 +10,9 @@ class Order(Base):
     id = Column(Integer, primary_key=True, index=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
+    # Valgfri kobling til bruker (ingen migrasjon, ingen FK)
+    user_id = Column(Integer, nullable=True)
+
     items = relationship("OrderItem", back_populates="order")
 
 
