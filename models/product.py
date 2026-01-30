@@ -25,7 +25,7 @@ class Product(Base):
 
     # relationships
     cart_items = relationship("CartItem", back_populates="product")
-    order_items = relationship("OrderItem", back_populates="product")
+    # OrderItem fjernet – finnes ikke i systemet
 
 
 class CartItem(Base):
