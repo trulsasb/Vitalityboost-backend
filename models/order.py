@@ -2,9 +2,7 @@ from sqlalchemy import Column, Integer, DateTime, Enum, Float, ForeignKey
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from enum import Enum as PyEnum
-
-from database import Base
-
+from models.base import Base
 
 class OrderStatus(str, PyEnum):
     PENDING_PAYMENT = "pending_payment"
