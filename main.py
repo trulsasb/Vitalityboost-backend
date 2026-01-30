@@ -1,5 +1,6 @@
 import os
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 # Database session factory
 from database import SessionLocal
@@ -8,13 +9,22 @@ from database import SessionLocal
 from payments.engine import PaymentEngine
 from payments.vipps_handler import VippsHandler
 from payments.stripe_handler import StripeHandler
-from models.payment import PaymentProvider
+from models.payment import PaymentProvider  # <-- korrekt import
 
 # -----------------------------
 #   FASTAPI APP
 # -----------------------------
 
 app = FastAPI()
+
+# CORS (trygt og frontend-vennlig)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.get("/")
 def health():
@@ -50,7 +60,7 @@ app.include_router(stripe_initiate.router, prefix="/stripe", tags=["Stripe"])
 app.include_router(stripe_webhook.router, prefix="/stripe-webhook", tags=["Stripe Webhook"])
 
 # -----------------------------
-#   ORDERS ROUTER (NY)
+#   ORDERS ROUTER
 # -----------------------------
 
 from routers.orders import router as orders_router
