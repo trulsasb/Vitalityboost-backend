@@ -21,6 +21,19 @@ class OrderStatusUpdate(BaseModel):
 
 
 # -----------------------------
+# Debug-endepunkt (MÅ stå før {order_id})
+# -----------------------------
+
+@router.get("/debug-enum")
+def debug_enum(db: Session = Depends(get_db)):
+    # Trygg ENUM-inspeksjon som ikke kan feile
+    result = db.execute(
+        "SELECT typname FROM pg_type WHERE typtype = 'e'"
+    ).fetchall()
+    return {"enum_types": [row[0] for row in result]}
+
+
+# -----------------------------
 # Endepunkter
 # -----------------------------
 
@@ -28,7 +41,7 @@ class OrderStatusUpdate(BaseModel):
 def create_order(payload: OrderCreate, db: Session = Depends(get_db)):
     order = Order(
         total_amount=payload.total_amount,
-        status="created"   # <-- riktig ENUM-verdi
+        status="created"
     )
     db.add(order)
     db.commit()
@@ -59,9 +72,3 @@ def update_order_status(order_id: int, payload: OrderStatusUpdate, db: Session =
     db.commit()
     db.refresh(order)
     return order
-    
-@router.get("/debug-enum")
-def debug_enum(db: Session = Depends(get_db)):
-    result = db.execute("SELECT typname FROM pg_type WHERE typtype = 'e'").fetchall()
-    return {"enum_types": result}
-
