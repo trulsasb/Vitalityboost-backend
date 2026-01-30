@@ -1,15 +1,18 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from database import engine
-from models.base import Base
+from database import engine, Base
+from routers import products
 
-from routers import products, orders, payments
-from payments.vipps_handler import VippsHandler
-from payments.stripe_handler import StripeHandler
+# Opprett tabeller hvis de ikke finnes
+Base.metadata.create_all(bind=engine)
 
-app = FastAPI()
+app = FastAPI(
+    title="VitalityBoost API",
+    version="1.0.0",
+)
 
+# CORS – beholdt enkel og trygg
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -18,15 +21,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-Base.metadata.create_all(bind=engine)
+# Routers
+app.include_router(products.router)
 
-vipps_handler = VippsHandler()
-stripe_handler = StripeHandler()
-
-app.include_router(products.router, prefix="/products", tags=["Products"])
-app.include_router(orders.router, tags=["Orders"])
-app.include_router(payments.router, prefix="/payments", tags=["Payments"])
 
 @app.get("/")
 def root():
-    return {"message": "VitalityBoost backend running"}
+    return {"message": "VitalityBoost backend is running"}
