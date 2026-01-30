@@ -10,7 +10,7 @@ class PaymentEvent(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     payment_id = Column(Integer, ForeignKey("payments.id"), nullable=False)
-    event_type = Column(String, nullable=False)
+    event_type = Column(String, nullable=False)  # f.eks. "initiated", "webhook", "completed"
     data = Column(Text, nullable=True)
     timestamp = Column(DateTime, default=datetime.utcnow)
 
