@@ -79,8 +79,17 @@ def create_order(payload: OrderCreate, db: Session = Depends(get_db)):
 
 
 @router.get("/")
-def list_orders(db: Session = Depends(get_db)):
-    return db.query(Order).all()
+def list_orders(status: str | None = None, db: Session = Depends(get_db)):
+    query = db.query(Order)
+
+    if status:
+        if status not in VALID_STATUSES:
+            return {
+                "error": f"Invalid status '{status}'. Must be one of: {', '.join(VALID_STATUSES)}"
+            }
+        query = query.filter(Order.status == status)
+
+    return query.all()
 
 
 @router.get("/{order_id}")
