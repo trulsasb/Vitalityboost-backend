@@ -1,10 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
 from database import engine
 from models.base import Base
-
-from routers import products, orders, payments
+from routers import products, orders
 from payments.vipps_handler import VippsHandler
 from payments.stripe_handler import StripeHandler
 
