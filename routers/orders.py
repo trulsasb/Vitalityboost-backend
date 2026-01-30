@@ -55,7 +55,7 @@ def debug_enum_values(db: Session = Depends(get_db)):
 def create_order(payload: OrderCreate, db: Session = Depends(get_db)):
     order = Order(
         total_amount=payload.total_amount,
-        status="created"
+        status="PENDING_PAYMENT"
     )
     db.add(order)
     db.commit()
