@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 
 from database import get_db
 from models.order import Order
@@ -21,17 +22,16 @@ class OrderStatusUpdate(BaseModel):
 
 
 # -----------------------------
-# Debug-endepunkt (trygg versjon)
+# Debug-endepunkt (SQLAlchemy 2.0-kompatibel)
 # -----------------------------
 
 @router.get("/debug-enum")
 def debug_enum(db: Session = Depends(get_db)):
-    # Denne spørringen kan IKKE feile, selv om databasen ikke har ENUM-typer
-    result = db.execute("""
+    result = db.execute(text("""
         SELECT t.typname AS enum_name
         FROM pg_type t
         WHERE t.typtype = 'e';
-    """).fetchall()
+    """)).fetchall()
 
     return {"enum_types": [row[0] for row in result]}
 
