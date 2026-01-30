@@ -34,6 +34,17 @@ def debug_enum(db: Session = Depends(get_db)):
     """)).fetchall()
 
     return {"enum_types": [row[0] for row in result]}
+@router.get("/debug-enum-values")
+def debug_enum_values(db: Session = Depends(get_db)):
+    result = db.execute(text("""
+        SELECT e.enumlabel
+        FROM pg_enum e
+        JOIN pg_type t ON e.enumtypid = t.oid
+        WHERE t.typname = 'orderstatus'
+        ORDER BY e.enumsortorder;
+    """)).fetchall()
+
+    return {"orderstatus_values": [row[0] for row in result]}
 
 
 # -----------------------------
