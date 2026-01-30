@@ -22,6 +22,7 @@ class Order(Base):
     status = Column(Enum(OrderStatus), default=OrderStatus.PENDING_PAYMENT)
     created_at = Column(DateTime, default=datetime.utcnow)
 
+    # relationships
     items = relationship(
         "OrderItem",
         back_populates="order",
@@ -43,4 +44,6 @@ class OrderItem(Base):
     quantity = Column(Integer, nullable=False)
     price_at_purchase = Column(Float, nullable=False)
 
+    # relationships
     order = relationship("Order", back_populates="items")
+    product = relationship("Product", back_populates="order_items")
