@@ -28,7 +28,7 @@ class OrderStatusUpdate(BaseModel):
 def create_order(payload: OrderCreate, db: Session = Depends(get_db)):
     order = Order(
         total_amount=payload.total_amount,
-        status="pending"
+        status="created"   # <-- riktig ENUM-verdi
     )
     db.add(order)
     db.commit()
