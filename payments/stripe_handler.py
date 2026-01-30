@@ -30,5 +30,5 @@ class StripeHandler:
 
         return {
             "payment_id": payment.id,
-            "redirect_url": f"https://stripe.com/checkout/{payment.id}"
+            "redirect_url": f"https://stripe.com/checkout/{payment.id}",
         }
