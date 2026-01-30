@@ -2,12 +2,11 @@ from sqlalchemy import Column, Integer, String, DateTime, Enum, ForeignKey
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from enum import Enum as PyEnum
-from database import Base
+from models.base import Base
 
 class PaymentProvider(str, PyEnum):
     VIPPS = "vipps"
     STRIPE = "stripe"
-
 
 class PaymentStatus(str, PyEnum):
     INITIATED = "initiated"
@@ -15,7 +14,6 @@ class PaymentStatus(str, PyEnum):
     CAPTURED = "captured"
     FAILED = "failed"
     REFUNDED = "refunded"
-
 
 class Payment(Base):
     __tablename__ = "payments"
