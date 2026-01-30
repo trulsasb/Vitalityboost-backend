@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from database import engine
-from models import Base
+from models.base import Base
 from routers import products, orders, payments
 from payments.vipps_handler import VippsHandler
 from payments.stripe_handler import StripeHandler
