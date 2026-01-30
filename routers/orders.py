@@ -59,3 +59,8 @@ def update_order_status(order_id: int, payload: OrderStatusUpdate, db: Session =
     db.commit()
     db.refresh(order)
     return order
+    
+@router.get("/debug-enum")
+def debug_enum(db: Session = Depends(get_db)):
+    result = db.execute("SELECT enum_range(NULL::orderstatus)").fetchone()
+    return {"enum_values": result[0]}
