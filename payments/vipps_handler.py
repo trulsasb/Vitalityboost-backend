@@ -9,13 +9,11 @@ class VippsHandler:
     def initiate_payment(self, order_id: int):
         db: Session = SessionLocal()
 
-        # Fetch order
         order = db.query(Order).filter(Order.id == order_id).first()
         if not order:
             db.close()
             return {"error": f"Order {order_id} not found"}
 
-        # Create payment
         payment = Payment(
             order_id=order.id,
             provider="vipps",
@@ -26,7 +24,6 @@ class VippsHandler:
         db.commit()
         db.refresh(payment)
 
-        # Log event
         event = PaymentEvent(
             payment_id=payment.id,
             event_type="initiated",
@@ -39,5 +36,5 @@ class VippsHandler:
 
         return {
             "payment_id": payment.id,
-            "redirect_url": f"https://vipps.no/checkout/{payment.id}"
+            "redirect_url": f"https://vipps.no/checkout/{payment.id}",
         }
