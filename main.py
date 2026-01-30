@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from database import engine, Base
-from routers import products
+from routers import products, cart
 
 # Opprett tabeller hvis de ikke finnes
 Base.metadata.create_all(bind=engine)
@@ -12,7 +12,7 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# CORS – beholdt enkel og trygg
+# CORS – enkel og trygg
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -23,7 +23,7 @@ app.add_middleware(
 
 # Routers
 app.include_router(products.router)
-
+app.include_router(cart.router)
 
 @app.get("/")
 def root():
