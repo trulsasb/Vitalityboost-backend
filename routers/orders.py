@@ -1,10 +1,24 @@
 from fastapi import APIRouter, Depends
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from database import get_db
 from models.order import Order
 
 router = APIRouter(prefix="/orders", tags=["Orders"])
+
+
+class OrderCreate(BaseModel):
+    total_amount: float
+
+
+@router.post("/")
+def create_order(payload: OrderCreate, db: Session = Depends(get_db)):
+    order = Order(total_amount=payload.total_amount, status="pending")
+    db.add(order)
+    db.commit()
+    db.refresh(order)
+    return order
 
 
 @router.get("/")
