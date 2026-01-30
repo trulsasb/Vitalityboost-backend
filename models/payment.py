@@ -9,8 +9,9 @@ class Payment(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     order_id = Column(Integer, ForeignKey("orders.id"), nullable=False)
-    provider = Column(String, nullable=False)
-    status = Column(String, nullable=False)
+    provider = Column(String, nullable=False)  # "stripe" eller "vipps"
+    status = Column(String, nullable=False)    # f.eks. "initiated", "completed", "failed"
     amount = Column(Float, nullable=False)
 
     events = relationship("PaymentEvent", back_populates="payment")
+
