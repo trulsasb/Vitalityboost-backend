@@ -2,7 +2,6 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 # Standard routers
-from orders import router as orders_router
 from products import router as products_router
 
 # Payments module
@@ -33,8 +32,7 @@ app.add_middleware(
 # PUBLIC ROUTERS
 # ---------------------------------------------------------
 
-app.include_router(orders_router, prefix="/orders")
-app.include_router(products_router, prefix="/products")
+app.include_router(products_router)
 
 # ---------------------------------------------------------
 # PAYMENTS ROUTER
