@@ -1,54 +1,91 @@
-from sqlalchemy.orm import Session
-from database import SessionLocal
-from models.order import Order, OrderItem
-from models.product import Product
-from models.payment import Payment
-from models.payment_event import PaymentEvent
+from typing import Optional
+from fastapi import HTTPException
+
+from payments.engine import PaymentEngine
+from models.payment import PaymentProvider, PaymentStatus
 
 
 class VippsHandler:
-    def initiate_payment(self, order_id: int):
-        db: Session = SessionLocal()
+    """
+    Hybrid Vipps-handler:
+    - Full struktur for ekte Vipps-integrasjon
+    - Mock-respons for testing uten API-nøkler
+    - 100% kompatibel med PaymentEngine
+    """
 
-        order = db.query(Order).filter(Order.id == order_id).first()
-        if not order:
-            db.close()
-            return {"error": f"Order {order_id} not found"}
+    def __init__(self, engine: Optional[PaymentEngine] = None):
+        self.engine = engine or PaymentEngine()
 
-        # Beregn total_amount basert på OrderItem og Product.price
-        order_items = (
-            db.query(OrderItem)
-            .filter(OrderItem.order_id == order.id)
-            .all()
+        # Her kan du senere legge inn ekte Vipps-nøkler:
+        # self.client_id = "..."
+        # self.client_secret = "..."
+        # self.subscription_key = "..."
+
+    # ---------------------------------------------------------
+    # INITIATE PAYMENT
+    # ---------------------------------------------------------
+
+    def initiate_payment(self, order_id: int) -> dict:
+        """
+        Oppretter en betaling i PaymentEngine og returnerer
+        en mocket Vipps-redirect-URL.
+
+        Når du vil gå live:
+        - Opprett ekte Vipps Payment Session
+        - Returner redirect-url fra Vipps API
+        """
+
+        payment = self.engine.create_payment(
+            order_id=order_id,
+            provider=PaymentProvider.VIPPS,
         )
 
-        total_amount = 0.0
-        for item in order_items:
-            product = db.query(Product).filter(Product.id == item.product_id).first()
-            if product:
-                total_amount += item.quantity * product.price
+        if not payment:
+            raise HTTPException(status_code=500, detail="Failed to create payment")
 
-        payment = Payment(
-            order_id=order.id,
-            provider="vipps",
-            status="initiated",
-            amount=total_amount,
-        )
-        db.add(payment)
-        db.commit()
-        db.refresh(payment)
+        # Mocket redirect-URL
+        mock_redirect_url = f"https://vipps.no/checkout/{payment.id}"
 
-        event = PaymentEvent(
+        # Logg event
+        self.engine.add_event(
             payment_id=payment.id,
-            event_type="initiated",
-            data=f"Vipps payment initiated for order {order.id}",
+            event_type="vipps_mock_initiated",
+            data=f"redirect_url={mock_redirect_url}",
         )
-        db.add(event)
-        db.commit()
-
-        db.close()
 
         return {
             "payment_id": payment.id,
-            "redirect_url": f"https://vipps.no/checkout/{payment.id}",
+            "provider": "vipps",
+            "amount": payment.amount,
+            "redirect_url": mock_redirect_url,
+            "status": payment.status,
+        }
+
+    # ---------------------------------------------------------
+    # CONFIRM PAYMENT (MOCK)
+    # ---------------------------------------------------------
+
+    def confirm_payment(self, payment_id: int) -> dict:
+        """
+        Mocket bekreftelse av betaling.
+        I ekte Vipps ville dette være en webhook eller polling.
+        """
+
+        updated = self.engine.update_status(
+            payment_id=payment_id,
+            new_status=PaymentStatus.COMPLETED,
+        )
+
+        if not updated:
+            raise HTTPException(status_code=404, detail="Payment not found")
+
+        self.engine.add_event(
+            payment_id=payment_id,
+            event_type="vipps_mock_confirmed",
+            data="Payment marked as completed",
+        )
+
+        return {
+            "payment_id": payment_id,
+            "status": updated.status,
         }
