@@ -1,37 +1,29 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from database import engine, Base
-from payments.engine import PaymentEngine
+# Standard routers
+from orders import router as orders_router
+from products import router as products_router
 
-# Routers
-from routers import (
-    products,
-    cart,
-    orders,
-    user,
-    admin_products,
-    auth,
-)
-from payments import stripe_webhook, vipps_webhook
+# Payments module
+from payments import router as payments_router
 
-# Opprett tabeller hvis de ikke finnes
-Base.metadata.create_all(bind=engine)
+# Admin modules
+from admin_orders import router as admin_orders_router
+from admin_payments import router as admin_payments_router
+from admin_products import router as admin_products_router
+from admin_users import router as admin_users_router
 
-# Global PaymentEngine-instans (må eksistere før webhook-routers importeres)
-payment_engine = PaymentEngine()
 
-app = FastAPI(
-    title="VitalityBoost API",
-    version="1.0.0",
-)
+app = FastAPI(title="VitalityBoost Backend")
 
 # ---------------------------------------------------------
 # CORS
 # ---------------------------------------------------------
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # Juster senere for produksjon
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -40,26 +32,30 @@ app.add_middleware(
 # ---------------------------------------------------------
 # PUBLIC ROUTERS
 # ---------------------------------------------------------
-app.include_router(products.router)
-app.include_router(cart.router)
-app.include_router(orders.router)
-app.include_router(auth.router)
+
+app.include_router(orders_router, prefix="/orders")
+app.include_router(products_router, prefix="/products")
+
+# ---------------------------------------------------------
+# PAYMENTS ROUTER
+# ---------------------------------------------------------
+
+app.include_router(payments_router)
 
 # ---------------------------------------------------------
 # ADMIN ROUTERS
 # ---------------------------------------------------------
-app.include_router(user.router)            # nå admin-beskyttet
-app.include_router(admin_products.router)
 
-# ---------------------------------------------------------
-# PAYMENT WEBHOOKS
-# ---------------------------------------------------------
-app.include_router(stripe_webhook.router, prefix="/webhooks/stripe")
-app.include_router(vipps_webhook.router, prefix="/webhooks/vipps")
+app.include_router(admin_orders_router)
+app.include_router(admin_payments_router)
+app.include_router(admin_products_router)
+app.include_router(admin_users_router)
+
 
 # ---------------------------------------------------------
 # ROOT
 # ---------------------------------------------------------
+
 @app.get("/")
 def root():
     return {"message": "VitalityBoost backend is running"}
