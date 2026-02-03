@@ -16,7 +16,7 @@ router = APIRouter(prefix="/payments", tags=["Payments"])
 @router.post("/stripe/initiate/{order_id}")
 def initiate_stripe_payment(order_id: int):
     """
-    Start a Stripe payment (hybrid mock).
+    Start a Stripe payment (mock).
     """
     try:
         return stripe.initiate_payment(order_id)
@@ -31,7 +31,7 @@ def initiate_stripe_payment(order_id: int):
 @router.post("/vipps/initiate/{order_id}")
 def initiate_vipps_payment(order_id: int):
     """
-    Start a Vipps payment (hybrid mock).
+    Start a Vipps payment (mock).
     """
     try:
         return vipps.initiate_payment(order_id)
@@ -47,7 +47,6 @@ def initiate_vipps_payment(order_id: int):
 def confirm_payment(payment_id: int):
     """
     Mock confirmation for both Stripe and Vipps.
-    Useful for testing without real webhooks.
     """
     # Stripe first
     try:
