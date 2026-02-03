@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 from database import SessionLocal
-from models.order import Order
+from models.order import Order, OrderItem
+from models.product import Product
 from models.payment import Payment
 from models.payment_event import PaymentEvent
 
@@ -14,11 +15,24 @@ class VippsHandler:
             db.close()
             return {"error": f"Order {order_id} not found"}
 
+        # Beregn total_amount basert på OrderItem og Product.price
+        order_items = (
+            db.query(OrderItem)
+            .filter(OrderItem.order_id == order.id)
+            .all()
+        )
+
+        total_amount = 0.0
+        for item in order_items:
+            product = db.query(Product).filter(Product.id == item.product_id).first()
+            if product:
+                total_amount += item.quantity * product.price
+
         payment = Payment(
             order_id=order.id,
             provider="vipps",
             status="initiated",
-            amount=order.total_amount,
+            amount=total_amount,
         )
         db.add(payment)
         db.commit()
