@@ -1,64 +1,48 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+
+from database import get_db
+from models.user import User
 
 router = APIRouter(prefix="/admin/users", tags=["Admin Users"])
 
 
-# ---------------------------------------------------------
-# STATIC USER LIST
-# ---------------------------------------------------------
-
-USERS = [
-    {"id": 1, "name": "Truls"},
-    {"id": 2, "name": "Kirsti"},
-]
-
-
-# ---------------------------------------------------------
-# LIST USERS
-# ---------------------------------------------------------
-
 @router.get("/")
-def list_users():
-    return USERS
+def list_users(db: Session = Depends(get_db)):
+    return db.query(User).all()
 
-
-# ---------------------------------------------------------
-# GET SINGLE USER
-# ---------------------------------------------------------
 
 @router.get("/{user_id}")
-def get_user(user_id: int):
-    for user in USERS:
-        if user["id"] == user_id:
-            return user
-    raise HTTPException(status_code=404, detail="User not found")
+def get_user(user_id: int, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
 
-
-# ---------------------------------------------------------
-# ADD USER
-# ---------------------------------------------------------
 
 @router.post("/")
-def add_user(data: dict):
-    name = data.get("name")
-    if not name:
-        raise HTTPException(status_code=400, detail="Missing 'name'")
+def create_user(email: str, name: str, password_hash: str, db: Session = Depends(get_db)):
+    user = User(
+        email=email,
+        name=name,
+        password_hash=password_hash,
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
 
-    new_id = max([u["id"] for u in USERS]) + 1 if USERS else 1
-    new_user = {"id": new_id, "name": name}
-    USERS.append(new_user)
 
-    return {"created": True, "user": new_user}
+@router.put("/{user_id}")
+def update_user(user_id: int, email: str, name: str, password_hash: str, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
 
+    user.email = email
+    user.name = name
+    user.password_hash = password_hash
 
-# ---------------------------------------------------------
-# DELETE USER
-# ---------------------------------------------------------
-
-@router.delete("/{user_id}")
-def delete_user(user_id: int):
-    for user in USERS:
-        if user["id"] == user_id:
-            USERS.remove(user)
-            return {"deleted": user_id}
-    raise HTTPException(status_code=404, detail="User not found")
+    db.commit()
+    db.refresh(user)
+    return user
