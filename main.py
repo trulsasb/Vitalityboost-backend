@@ -11,6 +11,7 @@ from routers import (
     orders,
     user,
     admin_products,
+    auth,
 )
 from payments import stripe_webhook, vipps_webhook
 
@@ -25,7 +26,9 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# CORS – enkel og trygg
+# ---------------------------------------------------------
+# CORS
+# ---------------------------------------------------------
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -34,28 +37,29 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# -----------------------------
+# ---------------------------------------------------------
 # PUBLIC ROUTERS
-# -----------------------------
+# ---------------------------------------------------------
 app.include_router(products.router)
 app.include_router(cart.router)
 app.include_router(orders.router)
-app.include_router(user.router)
+app.include_router(auth.router)
 
-# -----------------------------
+# ---------------------------------------------------------
 # ADMIN ROUTERS
-# -----------------------------
+# ---------------------------------------------------------
+app.include_router(user.router)            # nå admin-beskyttet
 app.include_router(admin_products.router)
 
-# -----------------------------
+# ---------------------------------------------------------
 # PAYMENT WEBHOOKS
-# -----------------------------
+# ---------------------------------------------------------
 app.include_router(stripe_webhook.router, prefix="/webhooks/stripe")
 app.include_router(vipps_webhook.router, prefix="/webhooks/vipps")
 
-# -----------------------------
+# ---------------------------------------------------------
 # ROOT
-# -----------------------------
+# ---------------------------------------------------------
 @app.get("/")
 def root():
     return {"message": "VitalityBoost backend is running"}
