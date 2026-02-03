@@ -1,62 +1,104 @@
-from sqlalchemy import (
-    Column,
-    Integer,
-    String,
-    Float,
-    Boolean,
-    DateTime,
-    ForeignKey,
-    JSON,
-)
-from sqlalchemy.orm import relationship
-from models.base import Base
-from datetime import datetime
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+
+from database import get_db
+from models.product import Product
+
+router = APIRouter(prefix="/admin/products", tags=["Admin – Products"])
 
 
-class Product(Base):
-    __tablename__ = "products"
+# ---------------------------------------------------------
+# LIST ALL PRODUCTS (ADMIN)
+# ---------------------------------------------------------
 
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String(255), nullable=False)
-    price = Column(Float, nullable=False)
-    stock = Column(Integer, default=0)
-    active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-    # relationships
-    cart_items = relationship("CartItem", back_populates="product")
-    # OrderItem fjernet – finnes ikke i systemet
+@router.get("/")
+def list_products(db: Session = Depends(get_db)):
+    return db.query(Product).order_by(Product.id.desc()).all()
 
 
-class CartItem(Base):
-    __tablename__ = "cart_items"
+# ---------------------------------------------------------
+# GET SINGLE PRODUCT
+# ---------------------------------------------------------
 
-    id = Column(Integer, primary_key=True)
-    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
-    quantity = Column(Integer, default=1, nullable=False)
-    session_id = Column(String(100), index=True, nullable=False)
-
-    product = relationship("Product", back_populates="cart_items")
-
-
-class User(Base):
-    __tablename__ = "users"
-
-    id = Column(Integer, primary_key=True)
-    email = Column(String(255), unique=True, nullable=False)
-    hashed_password = Column(String(255), nullable=False)
-    is_admin = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+@router.get("/{product_id}")
+def get_product(product_id: int, db: Session = Depends(get_db)):
+    product = db.query(Product).filter(Product.id == product_id).first()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    return product
 
 
-class AccountingIntegration(Base):
-    __tablename__ = "accounting_integrations"
+# ---------------------------------------------------------
+# CREATE PRODUCT
+# ---------------------------------------------------------
 
-    id = Column(Integer, primary_key=True)
-    provider = Column(String(50), nullable=False)
-    api_key = Column(String(255), nullable=True)
-    active = Column(Boolean, default=False)
-    test_mode = Column(Boolean, default=True)
-    last_sync = Column(DateTime, nullable=True)
+@router.post("/")
+def create_product(
+    name: str,
+    price: float,
+    stock: int = 0,
+    active: bool = True,
+    db: Session = Depends(get_db),
+):
+    if price < 0:
+        raise HTTPException(status_code=400, detail="Price cannot be negative")
 
-    config = Column(JSON, nullable=True, default=dict)
+    product = Product(
+        name=name,
+        price=price,
+        stock=stock,
+        active=active,
+    )
+    db.add(product)
+    db.commit()
+    db.refresh(product)
+    return product
+
+
+# ---------------------------------------------------------
+# UPDATE PRODUCT
+# ---------------------------------------------------------
+
+@router.put("/{product_id}")
+def update_product(
+    product_id: int,
+    name: str | None = None,
+    price: float | None = None,
+    stock: int | None = None,
+    active: bool | None = None,
+    db: Session = Depends(get_db),
+):
+    product = db.query(Product).filter(Product.id == product_id).first()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    if price is not None and price < 0:
+        raise HTTPException(status_code=400, detail="Price cannot be negative")
+
+    if name is not None:
+        product.name = name
+    if price is not None:
+        product.price = price
+    if stock is not None:
+        product.stock = stock
+    if active is not None:
+        product.active = active
+
+    db.commit()
+    db.refresh(product)
+    return product
+
+
+# ---------------------------------------------------------
+# DELETE PRODUCT
+# ---------------------------------------------------------
+
+@router.delete("/{product_id}")
+def delete_product(product_id: int, db: Session = Depends(get_db)):
+    product = db.query(Product).filter(Product.id == product_id).first()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    db.delete(product)
+    db.commit()
+    return {"status": "deleted", "product_id": product_id}
