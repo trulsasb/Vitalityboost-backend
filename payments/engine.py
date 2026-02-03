@@ -144,3 +144,135 @@ class PaymentEngine:
             payment = (
                 db.query(Payment)
                 .filter(Payment.id == payment_id)
+                .first()
+            )
+            if not payment:
+                return None
+
+            payment.status = (
+                new_status.value
+                if hasattr(new_status, "value")
+                else new_status
+            )
+
+            db.commit()
+            db.refresh(payment)
+            return payment
+
+        finally:
+            db.close()
+
+    # ---------------------------------------------------------
+    # WEBHOOK PROCESSING
+    # ---------------------------------------------------------
+
+    def process_webhook(
+        self,
+        provider: PaymentProvider,
+        payload: Any,
+        signature: Optional[str] = None,
+    ) -> None:
+        """
+        Generisk webhook-prosessering:
+        - Parser provider-spesifikk payload
+        - Oppdaterer Payment-status
+        - Logger PaymentEvent
+        """
+        db = self._get_db()
+        try:
+            payment_id, new_status = self._extract_payment_update(provider, payload)
+
+            if payment_id is None or new_status is None:
+                return
+
+            payment = (
+                db.query(Payment)
+                .filter(Payment.id == payment_id)
+                .first()
+            )
+            if not payment:
+                return
+
+            payment.status = (
+                new_status.value
+                if hasattr(new_status, "value")
+                else new_status
+            )
+
+            db.commit()
+            db.refresh(payment)
+
+            event = PaymentEvent(
+                payment_id=payment.id,
+                event_type="webhook",
+                data=str(payload),
+                timestamp=datetime.utcnow(),
+            )
+            db.add(event)
+            db.commit()
+
+        finally:
+            db.close()
+
+    # ---------------------------------------------------------
+    # PROVIDER-SPECIFIC PARSING
+    # ---------------------------------------------------------
+
+    def _extract_payment_update(
+        self,
+        provider: PaymentProvider,
+        payload: Any,
+    ) -> Tuple[Optional[int], Optional[PaymentStatus]]:
+        """
+        Provider-spesifikk parsing av webhook-payload.
+        """
+        # Stripe
+        if provider == PaymentProvider.STRIPE:
+            try:
+                obj = payload["data"]["object"]
+                payment_id = int(obj["metadata"]["payment_id"])
+                status_raw = obj.get("status", "succeeded")
+            except Exception:
+                return None, None
+
+            status = self._map_stripe_status(status_raw)
+            return payment_id, status
+
+        # Vipps
+        if provider == PaymentProvider.VIPPS:
+            try:
+                payment_id = int(payload.get("paymentId"))
+                status_raw = payload.get("status", "COMPLETED")
+            except Exception:
+                return None, None
+
+            status = self._map_vipps_status(status_raw)
+            return payment_id, status
+
+        return None, None
+
+    # ---------------------------------------------------------
+    # STATUS MAPPING
+    # ---------------------------------------------------------
+
+    def _map_stripe_status(self, status_raw: str) -> PaymentStatus:
+        status_raw = status_raw.lower()
+
+        if status_raw in ("succeeded", "paid"):
+            return getattr(PaymentStatus, "COMPLETED", "completed")
+
+        if status_raw in ("failed", "canceled"):
+            return getattr(PaymentStatus, "FAILED", "failed")
+
+        return getattr(PaymentStatus, "PENDING", "pending")
+
+    def _map_vipps_status(self, status_raw: str) -> PaymentStatus:
+        status_raw = status_raw.upper()
+
+        if status_raw in ("COMPLETED", "CAPTURED"):
+            return getattr(PaymentStatus, "COMPLETED", "completed")
+
+        if status_raw in ("FAILED", "CANCELLED"):
+            return getattr(PaymentStatus, "FAILED", "failed")
+
+        return getattr(PaymentStatus, "PENDING", "pending")
