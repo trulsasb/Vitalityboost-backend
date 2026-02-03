@@ -2,7 +2,6 @@ from typing import Optional
 from fastapi import HTTPException
 
 from payments.engine import PaymentEngine
-from models.payment import PaymentProvider, PaymentStatus
 
 
 class VippsHandler:
@@ -14,39 +13,29 @@ class VippsHandler:
     """
 
     def __init__(self, engine: Optional[PaymentEngine] = None):
-        self.engine = engine or PaymentEngine()
-
-        # Her kan du senere legge inn ekte Vipps-nøkler:
-        # self.client_id = "..."
-        # self.client_secret = "..."
-        # self.subscription_key = "..."
+        self.engine = engine or PaymentEngine
 
     # ---------------------------------------------------------
     # INITIATE PAYMENT
     # ---------------------------------------------------------
 
-    def initiate_payment(self, order_id: int) -> dict:
+    def initiate_payment(self, order_id: int, amount: float = 0.0) -> dict:
         """
         Oppretter en betaling i PaymentEngine og returnerer
         en mocket Vipps-redirect-URL.
-
-        Når du vil gå live:
-        - Opprett ekte Vipps Payment Session
-        - Returner redirect-url fra Vipps API
         """
 
         payment = self.engine.create_payment(
             order_id=order_id,
-            provider=PaymentProvider.VIPPS,
+            provider="vipps",
+            amount=amount,
         )
 
         if not payment:
             raise HTTPException(status_code=500, detail="Failed to create payment")
 
-        # Mocket redirect-URL
         mock_redirect_url = f"https://vipps.no/checkout/{payment.id}"
 
-        # Logg event
         self.engine.add_event(
             payment_id=payment.id,
             event_type="vipps_mock_initiated",
@@ -68,12 +57,11 @@ class VippsHandler:
     def confirm_payment(self, payment_id: int) -> dict:
         """
         Mocket bekreftelse av betaling.
-        I ekte Vipps ville dette være en webhook eller polling.
         """
 
         updated = self.engine.update_status(
             payment_id=payment_id,
-            new_status=PaymentStatus.COMPLETED,
+            new_status="completed",
         )
 
         if not updated:
