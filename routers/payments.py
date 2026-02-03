@@ -49,4 +49,18 @@ def get_payment_events(payment_id: int, db: Session = Depends(get_db)):
         db.query(PaymentEvent)
         .filter(PaymentEvent.payment_id == payment_id)
         .order_by(PaymentEvent.timestamp.desc())
+        .all()
+    )
+    return events
 
+
+# -----------------------------
+# STATUS POLLING (FRONTEND)
+# -----------------------------
+
+@router.get("/{payment_id}/status")
+def get_payment_status(payment_id: int, db: Session = Depends(get_db)):
+    payment = db.query(Payment).filter(Payment.id == payment_id).first()
+    if not payment:
+        raise HTTPException(status_code=404, detail="Payment not found")
+    return {"payment_id": payment.id, "status": payment.status}
