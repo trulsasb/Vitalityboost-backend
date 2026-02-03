@@ -13,7 +13,7 @@ class Payment(Base):
     # "stripe" eller "vipps"
     provider = Column(String, nullable=False)
 
-    # f.eks. "initiated", "completed", "failed"
+    # f.eks. "pending", "completed", "failed"
     status = Column(String, nullable=False)
 
     amount = Column(Float, nullable=False)
