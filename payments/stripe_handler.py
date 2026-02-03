@@ -2,61 +2,51 @@ from typing import Optional
 from fastapi import HTTPException
 
 from payments.engine import PaymentEngine
-from models.payment import PaymentProvider, PaymentStatus
 
 
 class StripeHandler:
     """
     Hybrid Stripe-handler:
-    - Full struktur for ekte Stripe-integrasjon
+    - Struktur for ekte Stripe-integrasjon
     - Mock-respons for testing uten API-nøkler
     - 100% kompatibel med PaymentEngine
     """
 
     def __init__(self, engine: Optional[PaymentEngine] = None):
-        self.engine = engine or PaymentEngine()
-
-        # Her kan du senere legge inn ekte Stripe-nøkler:
-        # self.secret_key = "sk_live_..."
-        # self.public_key = "pk_live_..."
+        self.engine = engine or PaymentEngine
 
     # ---------------------------------------------------------
     # INITIATE PAYMENT
     # ---------------------------------------------------------
 
-    def initiate_payment(self, order_id: int) -> dict:
+    def initiate_payment(self, order_id: int, amount: float = 0.0) -> dict:
         """
         Oppretter en betaling i PaymentEngine og returnerer
-        en mocket Stripe PaymentIntent-lignende respons.
-
-        Når du vil gå live:
-        - Opprett ekte PaymentIntent via Stripe API
-        - Returner client_secret
+        en mocket Stripe-redirect-URL.
         """
 
         payment = self.engine.create_payment(
             order_id=order_id,
-            provider=PaymentProvider.STRIPE,
+            provider="stripe",
+            amount=amount,
         )
 
         if not payment:
             raise HTTPException(status_code=500, detail="Failed to create payment")
 
-        # Mocket PaymentIntent
-        mock_client_secret = f"pi_mock_{payment.id}_secret_123"
+        mock_redirect_url = f"https://stripe.com/pay/{payment.id}"
 
-        # Logg event
         self.engine.add_event(
             payment_id=payment.id,
             event_type="stripe_mock_initiated",
-            data=f"client_secret={mock_client_secret}",
+            data=f"redirect_url={mock_redirect_url}",
         )
 
         return {
             "payment_id": payment.id,
             "provider": "stripe",
             "amount": payment.amount,
-            "client_secret": mock_client_secret,
+            "redirect_url": mock_redirect_url,
             "status": payment.status,
         }
 
@@ -67,12 +57,11 @@ class StripeHandler:
     def confirm_payment(self, payment_id: int) -> dict:
         """
         Mocket bekreftelse av betaling.
-        I ekte Stripe ville dette være en webhook eller PaymentIntent polling.
         """
 
         updated = self.engine.update_status(
             payment_id=payment_id,
-            new_status=PaymentStatus.COMPLETED,
+            new_status="completed",
         )
 
         if not updated:
