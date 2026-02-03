@@ -1,23 +1,19 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import NullPool
-import os
 
-from models.base import Base  # bruk felles Base for ALLE modeller
+from models.base import Base
 
-DATABASE_URL = os.getenv("DATABASE_URL")
+DATABASE_URL = "sqlite:///./vitalityboost.db"
 
-# Render krever NullPool + SSL
 engine = create_engine(
     DATABASE_URL,
-    poolclass=NullPool,
-    connect_args={"sslmode": "require"}
+    connect_args={"check_same_thread": False},
 )
 
 SessionLocal = sessionmaker(
     autocommit=False,
     autoflush=False,
-    bind=engine
+    bind=engine,
 )
 
 
@@ -27,3 +23,7 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+def init_db():
+    Base.metadata.create_all(bind=engine)
