@@ -11,10 +11,9 @@ class Order(Base):
     id = Column(Integer, primary_key=True, index=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
-    # Optional link to user (no FK, no migration)
+    # Optional link to user (no FK)
     user_id = Column(Integer, nullable=True)
 
-    # Relationship to order items
     items = relationship(
         "OrderItem",
         back_populates="order",
@@ -31,7 +30,6 @@ class OrderItem(Base):
     product_id = Column(Integer, nullable=False)
     quantity = Column(Integer, nullable=False)
 
-    # Back reference to order
     order = relationship(
         "Order",
         back_populates="items",
