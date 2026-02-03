@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 
-from models.payment import Payment, PaymentProvider, PaymentStatus
+from models.payment import Payment
 from models.payment_event import PaymentEvent
 
 
@@ -16,7 +16,7 @@ class PaymentEngine:
         payment = Payment(
             order_id=order_id,
             provider=provider,
-            status=PaymentStatus.PENDING,
+            status="pending",
             amount=amount,
         )
         self.db.add(payment)
