@@ -7,6 +7,7 @@ import jwt
 
 from database import get_db
 from models.user import User
+from utils.env import settings
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
@@ -14,9 +15,9 @@ router = APIRouter(prefix="/auth", tags=["Auth"])
 # CONFIG
 # ---------------------------------------------------------
 
-SECRET_KEY = "CHANGE_ME_TO_A_SECURE_RANDOM_KEY"
+SECRET_KEY = settings.JWT_SECRET
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 24 hours
+ACCESS_TOKEN_EXPIRE_MINUTES = 60 * settings.JWT_EXPIRE_HOURS
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
@@ -78,7 +79,7 @@ def register(email: str, password: str, db: Session = Depends(get_db)):
 
     user = User(
         email=email,
-        hashed_password=hash_password(password),
+        password_hash=hash_password(password),
         is_admin=False,
     )
     db.add(user)
@@ -95,7 +96,7 @@ def register(email: str, password: str, db: Session = Depends(get_db)):
 @router.post("/login")
 def login(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == form.username).first()
-    if not user or not verify_password(form.password, user.hashed_password):
+    if not user or not verify_password(form.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
     token = create_access_token({"sub": user.id})

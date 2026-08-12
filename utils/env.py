@@ -7,12 +7,17 @@ class Settings(BaseSettings):
     APP_MODE: str = "test"   # test | live
 
     # Database
-    DATABASE_URL: str
+    DATABASE_URL: str = "sqlite:///./vitalityboost.db"
 
     # Betalings‑API‑nøkler
-    STRIPE_SECRET_KEY: str
-    VIPPS_CLIENT_ID: str
-    VIPPS_CLIENT_SECRET: str
+    STRIPE_SECRET_KEY: str | None = None
+    STRIPE_WEBHOOK_SECRET: str | None = None
+    VIPPS_CLIENT_ID: str | None = None
+    VIPPS_CLIENT_SECRET: str | None = None
+    VIPPS_SUBSCRIPTION_KEY: str | None = None
+    VIPPS_MSN: str | None = None  # Merchant Serial Number
+    VIPPS_BASE_URL: str = "https://apitest.vipps.no"
+    FRONTEND_URL: str = "https://vitalityboost.no"
 
     # Regnskap
     TRIPLETEX_TOKEN: str | None = None
@@ -29,3 +34,11 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+# Refuse to boot in live mode with the placeholder JWT secret still in place —
+# this would let anyone forge a valid admin token.
+if settings.APP_MODE == "live" and settings.JWT_SECRET == "supersecret":
+    raise RuntimeError(
+        "JWT_SECRET is still the default placeholder. Set a real random "
+        "JWT_SECRET env var before running in live mode."
+    )

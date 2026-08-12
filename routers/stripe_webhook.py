@@ -1,41 +1,47 @@
-from fastapi import APIRouter, Request, Depends, HTTPException
-from payments.engine import PaymentEngine
-from models.payment import PaymentProvider
 import stripe
+from fastapi import APIRouter, Depends, HTTPException, Request
+from sqlalchemy.orm import Session
 
-router = APIRouter()
+from database import get_db
+from models.order import Order, OrderStatus
+from models.payment import Payment
+from models.payment_event import PaymentEvent
+from utils.env import settings
 
-def get_engine() -> PaymentEngine:
-    """
-    Temporary dependency until we wire up PaymentEngine in main.py.
-    """
-    from main import payment_engine
-    return payment_engine
+router = APIRouter(prefix="/webhooks/stripe", tags=["Webhooks"])
 
 
 @router.post("/")
-async def stripe_webhook(request: Request, engine: PaymentEngine = Depends(get_engine)):
-    # Stripe requires raw body for signature verification
+async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
+    if not settings.STRIPE_WEBHOOK_SECRET:
+        raise HTTPException(status_code=503, detail="Stripe webhook secret not configured")
+
     raw_body = await request.body()
     signature = request.headers.get("Stripe-Signature")
 
-    # Get webhook secret from handler
-    webhook_secret = engine.handlers[PaymentProvider.STRIPE].webhook_secret
-
     try:
-        event = stripe.Webhook.construct_event(
-            payload=raw_body,
-            sig_header=signature,
-            secret=webhook_secret
-        )
+        event = stripe.Webhook.construct_event(raw_body, signature, settings.STRIPE_WEBHOOK_SECRET)
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid Stripe signature")
 
-    # Pass the verified event to the engine
-    engine.process_webhook(
-        provider=PaymentProvider.STRIPE,
-        payload=event,
-        signature=signature,
-    )
+    event_type = event["type"]
+    obj = event["data"]["object"]
+    reference = obj.get("id")
 
+    payment = db.query(Payment).filter(Payment.external_reference == reference).first()
+    if not payment:
+        # Unrelated event, or one we don't track. Ack so Stripe stops retrying.
+        return {"status": "ignored"}
+
+    db.add(PaymentEvent(payment_id=payment.id, event_type=f"stripe_{event_type}", data=str(reference)))
+
+    if event_type == "checkout.session.completed":
+        payment.status = "completed"
+        order = db.query(Order).filter(Order.id == payment.order_id).first()
+        if order:
+            order.status = OrderStatus.PAID
+    elif event_type in ("checkout.session.expired", "payment_intent.payment_failed"):
+        payment.status = "failed"
+
+    db.commit()
     return {"status": "ok"}

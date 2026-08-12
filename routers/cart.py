@@ -48,7 +48,7 @@ def add_to_cart(session_id: str, product_id: int, db: Session = Depends(get_db))
 @router.post("/{session_id}/remove/{product_id}")
 def remove_from_cart(session_id: str, product_id: int, db: Session = Depends(get_db)):
     item = (
-        db.query(CCartItem)
+        db.query(CartItem)
         .filter(
             CartItem.session_id == session_id,
             CartItem.product_id == product_id,

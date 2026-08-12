@@ -14,9 +14,14 @@ class Payment(Base):
     provider = Column(String, nullable=False)
 
     # f.eks. "pending", "completed", "failed"
-    status = Column(String, nullable=False)
+    status = Column(String, nullable=False, default="pending")
 
     amount = Column(Float, nullable=False)
+    currency = Column(String, nullable=False, default="NOK")
+
+    # Provider's reference for this payment (Stripe Checkout Session id,
+    # Vipps orderId, etc.) — used to match incoming webhooks back to a row.
+    external_reference = Column(String, nullable=True, index=True)
 
     # Relationship to payment events
     events = relationship(

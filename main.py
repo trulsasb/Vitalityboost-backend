@@ -1,11 +1,20 @@
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from database import init_db
+from admin_accounting import router as admin_accounting_router
 from admin_orders import router as admin_orders_router
 from admin_payments import router as admin_payments_router
 from admin_products import router as admin_products_router
 from admin_users import router as admin_users_router
 from payments.router import router as payments_router
+from routers.auth import router as auth_router, get_current_admin
+from routers.cart import router as cart_router
+from routers.orders import router as public_orders_router
+from routers.products import router as public_products_router
+from routers.stripe_webhook import router as stripe_webhook_router
+from routers.user import router as user_router
+from routers.vipps_webhook import router as vipps_webhook_router
 
 app = FastAPI(title="VitalityBoost Backend")
 
@@ -25,11 +34,31 @@ app.add_middleware(
 # ROUTERS
 # ---------------------------------------------------------
 
-app.include_router(admin_orders_router)
-app.include_router(admin_payments_router)
-app.include_router(admin_products_router)
-app.include_router(admin_users_router)
+_admin_guard = [Depends(get_current_admin)]
+
+app.include_router(auth_router)
+app.include_router(admin_orders_router, dependencies=_admin_guard)
+app.include_router(admin_payments_router, dependencies=_admin_guard)
+app.include_router(admin_products_router, dependencies=_admin_guard)
+app.include_router(admin_users_router, dependencies=_admin_guard)
+app.include_router(admin_accounting_router, dependencies=_admin_guard)
 app.include_router(payments_router)
+app.include_router(cart_router)
+app.include_router(public_orders_router)
+app.include_router(public_products_router)
+app.include_router(user_router)
+# Webhooks: no admin auth (verified via provider signature instead), and
+# not user-facing, so they aren't gated behind login either.
+app.include_router(stripe_webhook_router)
+app.include_router(vipps_webhook_router)
+
+# ---------------------------------------------------------
+# STARTUP
+# ---------------------------------------------------------
+
+@app.on_event("startup")
+def on_startup():
+    init_db()
 
 # ---------------------------------------------------------
 # ROOT
