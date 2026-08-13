@@ -8,13 +8,13 @@ from admin_payments import router as admin_payments_router
 from admin_products import router as admin_products_router
 from admin_users import router as admin_users_router
 from payments.router import router as payments_router
-from routers.auth import router as auth_router, get_current_admin
+from routers.auth import router as auth_router, get_current_admin, require_permission
 from routers.cart import router as cart_router
 from routers.orders import router as public_orders_router
 from routers.products import router as public_products_router
 from routers.stripe_webhook import router as stripe_webhook_router
-from routers.user import router as user_router
 from routers.vipps_webhook import router as vipps_webhook_router
+from utils.env import settings
 
 app = FastAPI(title="VitalityBoost Backend")
 
@@ -24,7 +24,7 @@ app = FastAPI(title="VitalityBoost Backend")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[settings.FRONTEND_URL],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -35,18 +35,20 @@ app.add_middleware(
 # ---------------------------------------------------------
 
 _admin_guard = [Depends(get_current_admin)]
+_accounting_guard = [Depends(require_permission("can_manage_accounting"))]
 
 app.include_router(auth_router)
-app.include_router(admin_orders_router, dependencies=_admin_guard)
-app.include_router(admin_payments_router, dependencies=_admin_guard)
-app.include_router(admin_products_router, dependencies=_admin_guard)
+# Orders, payments, and products enforce permissions per-route (view vs.
+# edit) inside their own router files, so no blanket dependency here.
+app.include_router(admin_orders_router)
+app.include_router(admin_payments_router)
+app.include_router(admin_products_router)
 app.include_router(admin_users_router, dependencies=_admin_guard)
-app.include_router(admin_accounting_router, dependencies=_admin_guard)
+app.include_router(admin_accounting_router, dependencies=_accounting_guard)
 app.include_router(payments_router)
 app.include_router(cart_router)
 app.include_router(public_orders_router)
 app.include_router(public_products_router)
-app.include_router(user_router)
 # Webhooks: no admin auth (verified via provider signature instead), and
 # not user-facing, so they aren't gated behind login either.
 app.include_router(stripe_webhook_router)

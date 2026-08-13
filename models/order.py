@@ -1,5 +1,5 @@
 import enum
-from sqlalchemy import Column, Enum, Float, Integer, DateTime, ForeignKey
+from sqlalchemy import Column, Enum, Float, Integer, DateTime, ForeignKey, String
 from sqlalchemy.orm import relationship
 from datetime import datetime
 
@@ -31,6 +31,15 @@ class Order(Base):
 
     # Optional link to user (no FK)
     user_id = Column(Integer, nullable=True)
+
+    # Shipping/contact details, required for physical delivery. Nullable at
+    # the DB level so this doesn't break rows that predate this column; the
+    # /orders/direct endpoint enforces them as required on new orders.
+    customer_name = Column(String, nullable=True)
+    customer_email = Column(String, nullable=True)
+    shipping_address = Column(String, nullable=True)
+    shipping_zip = Column(String, nullable=True)
+    shipping_city = Column(String, nullable=True)
 
     items = relationship(
         "OrderItem",

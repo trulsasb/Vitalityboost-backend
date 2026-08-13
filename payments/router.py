@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from database import get_db
-from models.order import Order
+from models.order import Order, OrderStatus
 from models.payment import Payment
 from payments.vipps_auth import VippsAuth
 from utils.env import settings
@@ -25,6 +25,8 @@ def initiate_stripe_payment(order_id: int, db: Session = Depends(get_db)):
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
+    if order.status != OrderStatus.PENDING_PAYMENT:
+        raise HTTPException(status_code=409, detail="Order is not awaiting payment")
 
     payment = Payment(order_id=order.id, provider="stripe", status="pending", amount=order.total_amount, currency="NOK")
     db.add(payment)
@@ -71,6 +73,8 @@ def initiate_vipps_payment(order_id: int, db: Session = Depends(get_db)):
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
+    if order.status != OrderStatus.PENDING_PAYMENT:
+        raise HTTPException(status_code=409, detail="Order is not awaiting payment")
 
     payment = Payment(order_id=order.id, provider="vipps", status="pending", amount=order.total_amount, currency="NOK")
     db.add(payment)

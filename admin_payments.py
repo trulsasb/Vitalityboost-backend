@@ -4,16 +4,20 @@ from sqlalchemy.orm import Session
 from database import get_db
 from models.payment import Payment
 from models.payment_event import PaymentEvent
+from routers.auth import get_current_admin, require_permission
 
 router = APIRouter(prefix="/admin/payments", tags=["Admin Payments"])
 
+_can_view = [Depends(require_permission("can_view_payments"))]
+_owner_only = [Depends(get_current_admin)]
 
-@router.get("/")
+
+@router.get("/", dependencies=_can_view)
 def list_payments(db: Session = Depends(get_db)):
     return db.query(Payment).all()
 
 
-@router.get("/{payment_id}")
+@router.get("/{payment_id}", dependencies=_can_view)
 def get_payment(payment_id: int, db: Session = Depends(get_db)):
     payment = db.query(Payment).filter(Payment.id == payment_id).first()
     if not payment:
@@ -21,7 +25,7 @@ def get_payment(payment_id: int, db: Session = Depends(get_db)):
     return payment
 
 
-@router.get("/{payment_id}/events")
+@router.get("/{payment_id}/events", dependencies=_can_view)
 def list_payment_events(payment_id: int, db: Session = Depends(get_db)):
     events = db.query(PaymentEvent).filter(PaymentEvent.payment_id == payment_id).all()
     if not events:
@@ -29,7 +33,7 @@ def list_payment_events(payment_id: int, db: Session = Depends(get_db)):
     return events
 
 
-@router.post("/{payment_id}/events")
+@router.post("/{payment_id}/events", dependencies=_owner_only)
 def add_payment_event(payment_id: int, event_type: str, data: str, db: Session = Depends(get_db)):
     payment = db.query(Payment).filter(Payment.id == payment_id).first()
     if not payment:

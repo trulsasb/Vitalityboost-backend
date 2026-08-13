@@ -67,26 +67,15 @@ def get_current_admin(
     return current_user
 
 
-# ---------------------------------------------------------
-# REGISTER
-# ---------------------------------------------------------
+def require_permission(permission: str):
+    """Dependency factory: allows owners (is_admin) or users granted the named permission flag."""
 
-@router.post("/register")
-def register(email: str, password: str, db: Session = Depends(get_db)):
-    existing = db.query(User).filter(User.email == email).first()
-    if existing:
-        raise HTTPException(status_code=400, detail="Email already registered")
+    def checker(current_user: User = Depends(get_current_user)) -> User:
+        if current_user.is_admin or getattr(current_user, permission, False):
+            return current_user
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
 
-    user = User(
-        email=email,
-        password_hash=hash_password(password),
-        is_admin=False,
-    )
-    db.add(user)
-    db.commit()
-    db.refresh(user)
-
-    return {"status": "registered", "user_id": user.id}
+    return checker
 
 
 # ---------------------------------------------------------
@@ -109,4 +98,13 @@ def login(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get
 
 @router.get("/me")
 def get_me(current_user: User = Depends(get_current_user)):
-    return current_user
+    return {
+        "id": current_user.id,
+        "email": current_user.email,
+        "is_admin": current_user.is_admin,
+        "can_view_products": current_user.can_view_products,
+        "can_edit_products": current_user.can_edit_products,
+        "can_view_orders": current_user.can_view_orders,
+        "can_view_payments": current_user.can_view_payments,
+        "can_manage_accounting": current_user.can_manage_accounting,
+    }

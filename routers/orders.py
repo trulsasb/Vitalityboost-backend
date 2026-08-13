@@ -5,6 +5,8 @@ from sqlalchemy.orm import Session
 from database import get_db
 from models.product import CartItem, Product
 from models.order import Order, OrderItem, OrderStatus
+from services.email_service import EmailService
+from utils.validators import validate_email
 
 router = APIRouter(prefix="/orders", tags=["Orders"])
 
@@ -16,6 +18,11 @@ class DirectOrderItem(BaseModel):
 
 class DirectOrderRequest(BaseModel):
     items: list[DirectOrderItem]
+    customer_name: str
+    customer_email: str
+    shipping_address: str
+    shipping_zip: str
+    shipping_city: str
 
 
 # ---------------------------------------------------------
@@ -26,9 +33,19 @@ class DirectOrderRequest(BaseModel):
 # through the session-based /orders/{session_id} flow above.
 
 @router.post("/direct")
-def create_order_direct(payload: DirectOrderRequest, db: Session = Depends(get_db)):
+async def create_order_direct(payload: DirectOrderRequest, db: Session = Depends(get_db)):
     if not payload.items:
         raise HTTPException(status_code=400, detail="Cart is empty")
+
+    validate_email(payload.customer_email)
+    for field_name, value in [
+        ("customer_name", payload.customer_name),
+        ("shipping_address", payload.shipping_address),
+        ("shipping_zip", payload.shipping_zip),
+        ("shipping_city", payload.shipping_city),
+    ]:
+        if not value or not value.strip():
+            raise HTTPException(status_code=400, detail=f"{field_name} is required")
 
     product_ids = [item.product_id for item in payload.items]
     products = {
@@ -45,7 +62,15 @@ def create_order_direct(payload: DirectOrderRequest, db: Session = Depends(get_d
 
     total_amount = sum(products[item.product_id].price * item.quantity for item in payload.items)
 
-    order = Order(total_amount=total_amount, status=OrderStatus.PENDING_PAYMENT)
+    order = Order(
+        total_amount=total_amount,
+        status=OrderStatus.PENDING_PAYMENT,
+        customer_name=payload.customer_name.strip(),
+        customer_email=payload.customer_email.strip(),
+        shipping_address=payload.shipping_address.strip(),
+        shipping_zip=payload.shipping_zip.strip(),
+        shipping_city=payload.shipping_city.strip(),
+    )
     db.add(order)
     db.commit()
     db.refresh(order)
@@ -61,6 +86,15 @@ def create_order_direct(payload: DirectOrderRequest, db: Session = Depends(get_d
         product.stock -= item.quantity
 
     db.commit()
+
+    try:
+        await EmailService().send_order_confirmation(
+            to_email=order.customer_email,
+            subject=f"Vitalityboost — bekreftelse på ordre #{order.id}",
+            body=f"Takk for din bestilling! Ordre #{order.id} på {order.total_amount} kr er mottatt.",
+        )
+    except Exception:
+        pass  # Confirmation email is best-effort; it must never block checkout.
 
     return {
         "order_id": order.id,

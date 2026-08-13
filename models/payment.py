@@ -1,5 +1,6 @@
-from sqlalchemy import Column, Integer, String, Float, ForeignKey
+from sqlalchemy import Column, DateTime, Integer, String, Float, ForeignKey
 from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
 
 from .base import Base
 
@@ -9,6 +10,7 @@ class Payment(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     order_id = Column(Integer, ForeignKey("orders.id"), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     # "stripe" eller "vipps"
     provider = Column(String, nullable=False)

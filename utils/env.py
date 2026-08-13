@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     VIPPS_SUBSCRIPTION_KEY: str | None = None
     VIPPS_MSN: str | None = None  # Merchant Serial Number
     VIPPS_BASE_URL: str = "https://apitest.vipps.no"
+    VIPPS_WEBHOOK_SECRET: str | None = None  # returned when registering the webhook via POST /webhooks
     FRONTEND_URL: str = "https://vitalityboost.no"
 
     # Regnskap
