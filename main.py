@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from database import init_db
 from admin_accounting import router as admin_accounting_router
+from admin_categories import router as admin_categories_router
 from admin_content import router as admin_content_router
 from admin_orders import router as admin_orders_router
 from admin_payments import router as admin_payments_router
@@ -42,6 +43,7 @@ _accounting_guard = [Depends(require_permission("can_manage_accounting"))]
 app.include_router(auth_router)
 # Orders, payments, and products enforce permissions per-route (view vs.
 # edit) inside their own router files, so no blanket dependency here.
+app.include_router(admin_categories_router)
 app.include_router(admin_orders_router)
 app.include_router(admin_payments_router)
 app.include_router(admin_products_router)
