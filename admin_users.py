@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from models.user import User
-from routers.auth import hash_password
+from routers.auth import get_current_owner, hash_password
 
 router = APIRouter(prefix="/admin/users", tags=["Admin Users"])
 
@@ -44,7 +44,7 @@ class UserUpdate(BaseModel):
 
 
 def _public(user: User) -> dict:
-    data = {"id": user.id, "email": user.email, "created_at": user.created_at}
+    data = {"id": user.id, "email": user.email, "created_at": user.created_at, "is_owner": user.is_owner}
     for field in PERMISSION_FIELDS:
         data[field] = getattr(user, field)
     return data
@@ -98,3 +98,17 @@ def update_user(user_id: int, payload: UserUpdate, db: Session = Depends(get_db)
     db.commit()
     db.refresh(user)
     return _public(user)
+
+
+@router.delete("/{user_id}", dependencies=[Depends(get_current_owner)])
+def delete_user(user_id: int, current_user: User = Depends(get_current_owner), db: Session = Depends(get_db)):
+    if user_id == current_user.id:
+        raise HTTPException(status_code=400, detail="Cannot delete your own account")
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    db.delete(user)
+    db.commit()
+    return {"status": "deleted", "id": user_id}

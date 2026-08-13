@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from database import get_db
-from models.product import Product
+from models.product import CartItem, Product
 from routers.auth import require_permission
 from utils.validators import validate_amount
 
@@ -71,3 +71,18 @@ def update_product(product_id: int, payload: ProductUpdate, db: Session = Depend
     db.commit()
     db.refresh(product)
     return product
+
+
+@router.delete("/{product_id}", dependencies=_can_edit)
+def delete_product(product_id: int, db: Session = Depends(get_db)):
+    product = db.query(Product).filter(Product.id == product_id).first()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    # Clear any leftover cart_items referencing this product first — that
+    # table has a foreign key to products and isn't cleaned up by the
+    # current (localStorage-based) checkout flow, so stale rows can exist.
+    db.query(CartItem).filter(CartItem.product_id == product_id).delete()
+    db.delete(product)
+    db.commit()
+    return {"status": "deleted", "id": product_id}

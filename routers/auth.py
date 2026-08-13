@@ -67,6 +67,16 @@ def get_current_admin(
     return current_user
 
 
+def get_current_owner(
+    current_user: User = Depends(get_current_user),
+) -> User:
+    """Stricter than get_current_admin — for actions (like deleting a user
+    account) that shouldn't be available even to other full Administrators."""
+    if not current_user.is_owner:
+        raise HTTPException(status_code=403, detail="Owner access required")
+    return current_user
+
+
 def require_permission(permission: str):
     """Dependency factory: allows owners (is_admin) or users granted the named permission flag."""
 
@@ -102,6 +112,7 @@ def get_me(current_user: User = Depends(get_current_user)):
         "id": current_user.id,
         "email": current_user.email,
         "is_admin": current_user.is_admin,
+        "is_owner": current_user.is_owner,
         "can_view_products": current_user.can_view_products,
         "can_edit_products": current_user.can_edit_products,
         "can_view_orders": current_user.can_view_orders,

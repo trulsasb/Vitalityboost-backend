@@ -12,6 +12,10 @@ class User(Base):
     password_hash = Column(String, nullable=False)
     is_admin = Column(Boolean, nullable=False, default=False, server_default="false")
 
+    # Stricter than is_admin — only the account holder(s) meant to have this
+    # level can delete other user accounts, even other full Administrators.
+    is_owner = Column(Boolean, nullable=False, default=False, server_default="false")
+
     # Granular admin-panel permissions for non-owner staff accounts.
     # is_admin (above) is the owner level and implies all of these.
     can_view_products = Column(Boolean, nullable=False, default=False, server_default="false")
