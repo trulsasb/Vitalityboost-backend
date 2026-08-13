@@ -19,6 +19,7 @@ class User(Base):
     can_view_orders = Column(Boolean, nullable=False, default=False, server_default="false")
     can_view_payments = Column(Boolean, nullable=False, default=False, server_default="false")
     can_manage_accounting = Column(Boolean, nullable=False, default=False, server_default="false")
+    can_edit_content = Column(Boolean, nullable=False, default=False, server_default="false")
 
     created_at = Column(DateTime, server_default=func.now())
 

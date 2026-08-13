@@ -15,6 +15,7 @@ PERMISSION_FIELDS = [
     "can_view_orders",
     "can_view_payments",
     "can_manage_accounting",
+    "can_edit_content",
 ]
 
 
@@ -27,6 +28,7 @@ class UserCreate(BaseModel):
     can_view_orders: bool = False
     can_view_payments: bool = False
     can_manage_accounting: bool = False
+    can_edit_content: bool = False
 
 
 class UserUpdate(BaseModel):
@@ -38,6 +40,7 @@ class UserUpdate(BaseModel):
     can_view_orders: bool | None = None
     can_view_payments: bool | None = None
     can_manage_accounting: bool | None = None
+    can_edit_content: bool | None = None
 
 
 def _public(user: User) -> dict:
