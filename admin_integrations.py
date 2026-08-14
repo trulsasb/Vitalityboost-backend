@@ -1,9 +1,11 @@
+import requests
 import stripe
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from database import get_db
+from payments.vipps_auth import VippsAuth
 from routers.auth import get_current_owner
 from utils.env import settings
 from utils.integration_settings import get_setting, resolve_setting, set_settings
@@ -27,6 +29,7 @@ PROVIDER_FIELDS = {
         "subscription_key": True,
         "msn": False,
         "base_url": False,
+        "webhook_secret": True,
     },
 }
 
@@ -38,6 +41,7 @@ _ENV_FALLBACKS = {
     ("vipps", "subscription_key"): lambda: settings.VIPPS_SUBSCRIPTION_KEY,
     ("vipps", "msn"): lambda: settings.VIPPS_MSN,
     ("vipps", "base_url"): lambda: settings.VIPPS_BASE_URL,
+    ("vipps", "webhook_secret"): lambda: settings.VIPPS_WEBHOOK_SECRET,
 }
 
 
@@ -109,6 +113,36 @@ def test_integration(provider: str, db: Session = Depends(get_db)):
         return {
             "status": "ok",
             "message": f"Connected to Stripe account {account.get('id')} ({account.get('email') or 'no email on file'})",
+        }
+
+    if provider == "vipps":
+        client_id = resolve_setting(db, "vipps", "client_id", settings.VIPPS_CLIENT_ID)
+        client_secret = resolve_setting(db, "vipps", "client_secret", settings.VIPPS_CLIENT_SECRET)
+        subscription_key = resolve_setting(db, "vipps", "subscription_key", settings.VIPPS_SUBSCRIPTION_KEY)
+        base_url = resolve_setting(db, "vipps", "base_url", settings.VIPPS_BASE_URL)
+
+        if not all([client_id, client_secret, subscription_key]):
+            raise HTTPException(
+                status_code=400,
+                detail="Fill in Client ID, Client Secret, and Subscription Key first",
+            )
+
+        auth = VippsAuth(
+            client_id=client_id,
+            client_secret=client_secret,
+            subscription_key=subscription_key,
+            base_url=base_url,
+        )
+        try:
+            auth._fetch_new_token()
+        except requests.HTTPError as e:
+            raise HTTPException(status_code=400, detail=f"Vipps rejected these credentials: {e}")
+        except Exception as e:
+            raise HTTPException(status_code=502, detail=f"Could not reach Vipps: {e}")
+
+        return {
+            "status": "ok",
+            "message": f"Connected to Vipps successfully ({base_url}). Note: this confirms Client ID/Secret/Subscription Key are valid, but not MSN — that's only checked when a real payment is initiated.",
         }
 
     raise HTTPException(status_code=501, detail=f"Connection test not implemented yet for {provider}")

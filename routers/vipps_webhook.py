@@ -11,6 +11,7 @@ from models.order import Order, OrderStatus
 from models.payment import Payment
 from models.payment_event import PaymentEvent
 from utils.env import settings
+from utils.integration_settings import resolve_setting
 
 router = APIRouter(prefix="/webhooks/vipps", tags=["Webhooks"])
 
@@ -21,14 +22,12 @@ _FAILURE_EVENTS = {"CANCELLED", "EXPIRED", "TERMINATED", "FAILED"}
 _EXPECTED_SIGNED_HEADERS = "x-ms-date;host;x-ms-content-sha256"
 
 
-def _verify_signature(request: Request, raw_body: bytes) -> None:
+def _verify_signature(request: Request, raw_body: bytes, webhook_secret: str) -> None:
     """Verify Vipps's HMAC-SHA256 webhook signature.
 
     Scheme: https://developer.vippsmobilepay.com/docs/APIs/webhooks-api/request-authentication/
     The secret is the one returned when the webhook was registered via POST /webhooks.
     """
-    if not settings.VIPPS_WEBHOOK_SECRET:
-        raise HTTPException(status_code=503, detail="Vipps webhook secret not configured")
 
     date_header = request.headers.get("x-ms-date")
     content_hash_header = request.headers.get("x-ms-content-sha256")
@@ -59,7 +58,7 @@ def _verify_signature(request: Request, raw_body: bytes) -> None:
 
     string_to_sign = f"POST\n{path_and_query}\n{date_header};{host};{content_hash_header}"
     expected_signature = base64.b64encode(
-        hmac.new(settings.VIPPS_WEBHOOK_SECRET.encode(), string_to_sign.encode(), hashlib.sha256).digest()
+        hmac.new(webhook_secret.encode(), string_to_sign.encode(), hashlib.sha256).digest()
     ).decode()
 
     if not hmac.compare_digest(expected_signature, signature):
@@ -68,8 +67,12 @@ def _verify_signature(request: Request, raw_body: bytes) -> None:
 
 @router.post("/")
 async def vipps_webhook(request: Request, db: Session = Depends(get_db)):
+    webhook_secret = resolve_setting(db, "vipps", "webhook_secret", settings.VIPPS_WEBHOOK_SECRET)
+    if not webhook_secret:
+        raise HTTPException(status_code=503, detail="Vipps webhook secret not configured")
+
     raw_body = await request.body()
-    _verify_signature(request, raw_body)
+    _verify_signature(request, raw_body, webhook_secret)
     payload = json.loads(raw_body)
 
     reference = payload.get("reference")
