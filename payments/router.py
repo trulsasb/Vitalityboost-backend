@@ -8,6 +8,7 @@ from models.order import Order, OrderStatus
 from models.payment import Payment
 from payments.vipps_auth import VippsAuth
 from utils.env import settings
+from utils.integration_settings import resolve_setting
 
 router = APIRouter(prefix="/payments", tags=["Payments"])
 
@@ -18,9 +19,10 @@ router = APIRouter(prefix="/payments", tags=["Payments"])
 
 @router.post("/stripe/initiate/{order_id}")
 def initiate_stripe_payment(order_id: int, db: Session = Depends(get_db)):
-    if not settings.STRIPE_SECRET_KEY:
-        raise HTTPException(status_code=503, detail="Stripe is not configured (missing STRIPE_SECRET_KEY)")
-    stripe.api_key = settings.STRIPE_SECRET_KEY
+    stripe_secret_key = resolve_setting(db, "stripe", "secret_key", settings.STRIPE_SECRET_KEY)
+    if not stripe_secret_key:
+        raise HTTPException(status_code=503, detail="Stripe is not configured (missing secret key)")
+    stripe.api_key = stripe_secret_key
 
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
@@ -66,8 +68,13 @@ def initiate_stripe_payment(order_id: int, db: Session = Depends(get_db)):
 
 @router.post("/vipps/initiate/{order_id}")
 def initiate_vipps_payment(order_id: int, db: Session = Depends(get_db)):
-    required = [settings.VIPPS_CLIENT_ID, settings.VIPPS_CLIENT_SECRET, settings.VIPPS_SUBSCRIPTION_KEY, settings.VIPPS_MSN]
-    if not all(required):
+    vipps_client_id = resolve_setting(db, "vipps", "client_id", settings.VIPPS_CLIENT_ID)
+    vipps_client_secret = resolve_setting(db, "vipps", "client_secret", settings.VIPPS_CLIENT_SECRET)
+    vipps_subscription_key = resolve_setting(db, "vipps", "subscription_key", settings.VIPPS_SUBSCRIPTION_KEY)
+    vipps_msn = resolve_setting(db, "vipps", "msn", settings.VIPPS_MSN)
+    vipps_base_url = resolve_setting(db, "vipps", "base_url", settings.VIPPS_BASE_URL)
+
+    if not all([vipps_client_id, vipps_client_secret, vipps_subscription_key, vipps_msn]):
         raise HTTPException(status_code=503, detail="Vipps is not configured (missing client id/secret/subscription key/MSN)")
 
     order = db.query(Order).filter(Order.id == order_id).first()
@@ -82,16 +89,16 @@ def initiate_vipps_payment(order_id: int, db: Session = Depends(get_db)):
     db.refresh(payment)
 
     auth = VippsAuth(
-        client_id=settings.VIPPS_CLIENT_ID,
-        client_secret=settings.VIPPS_CLIENT_SECRET,
-        subscription_key=settings.VIPPS_SUBSCRIPTION_KEY,
-        base_url=settings.VIPPS_BASE_URL,
+        client_id=vipps_client_id,
+        client_secret=vipps_client_secret,
+        subscription_key=vipps_subscription_key,
+        base_url=vipps_base_url,
     )
     reference = f"vb-order-{order.id}-{payment.id}"
 
     try:
         headers = auth.get_headers()
-        headers["Merchant-Serial-Number"] = settings.VIPPS_MSN
+        headers["Merchant-Serial-Number"] = vipps_msn
         body = {
             "amount": {"currency": "NOK", "value": int(round(order.total_amount * 100))},
             "paymentMethod": {"type": "WALLET"},
@@ -101,7 +108,7 @@ def initiate_vipps_payment(order_id: int, db: Session = Depends(get_db)):
             "paymentDescription": f"Vitalityboost order #{order.id}",
         }
         with httpx.Client(timeout=15) as client:
-            resp = client.post(f"{settings.VIPPS_BASE_URL}/epayment/v1/payments", headers=headers, json=body)
+            resp = client.post(f"{vipps_base_url}/epayment/v1/payments", headers=headers, json=body)
         if resp.status_code >= 400:
             raise Exception(resp.text)
         data = resp.json()

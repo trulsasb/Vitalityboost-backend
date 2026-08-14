@@ -5,6 +5,7 @@ from database import init_db
 from admin_accounting import router as admin_accounting_router
 from admin_categories import router as admin_categories_router
 from admin_content import router as admin_content_router
+from admin_integrations import router as admin_integrations_router
 from admin_orders import router as admin_orders_router
 from admin_payments import router as admin_payments_router
 from admin_products import router as admin_products_router
@@ -50,6 +51,7 @@ app.include_router(admin_products_router)
 app.include_router(admin_users_router, dependencies=_admin_guard)
 app.include_router(admin_accounting_router, dependencies=_accounting_guard)
 app.include_router(admin_content_router)
+app.include_router(admin_integrations_router)
 app.include_router(payments_router)
 app.include_router(cart_router)
 app.include_router(public_content_router)

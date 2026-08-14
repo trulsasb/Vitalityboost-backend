@@ -7,20 +7,22 @@ from models.order import Order, OrderStatus
 from models.payment import Payment
 from models.payment_event import PaymentEvent
 from utils.env import settings
+from utils.integration_settings import resolve_setting
 
 router = APIRouter(prefix="/webhooks/stripe", tags=["Webhooks"])
 
 
 @router.post("/")
 async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
-    if not settings.STRIPE_WEBHOOK_SECRET:
+    webhook_secret = resolve_setting(db, "stripe", "webhook_secret", settings.STRIPE_WEBHOOK_SECRET)
+    if not webhook_secret:
         raise HTTPException(status_code=503, detail="Stripe webhook secret not configured")
 
     raw_body = await request.body()
     signature = request.headers.get("Stripe-Signature")
 
     try:
-        event = stripe.Webhook.construct_event(raw_body, signature, settings.STRIPE_WEBHOOK_SECRET)
+        event = stripe.Webhook.construct_event(raw_body, signature, webhook_secret)
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid Stripe signature")
 

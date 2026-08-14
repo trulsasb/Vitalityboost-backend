@@ -31,6 +31,11 @@ class Settings(BaseSettings):
     JWT_SECRET: str = "supersecret"
     JWT_EXPIRE_HOURS: int = 24
 
+    # Fernet key used to encrypt payment-provider credentials stored in the
+    # database (Stripe/Vipps keys entered via the admin dashboard). Generate
+    # with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+    SETTINGS_ENCRYPTION_KEY: str | None = None
+
     model_config = SettingsConfigDict(env_file=".env")
 
 
