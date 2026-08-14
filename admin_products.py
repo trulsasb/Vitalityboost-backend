@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from database import get_db
+from models.order import OrderItem
 from models.product import CartItem, Product
 from routers.auth import require_permission
 from utils.validators import validate_amount
@@ -78,6 +79,17 @@ def delete_product(product_id: int, db: Session = Depends(get_db)):
     product = db.query(Product).filter(Product.id == product_id).first()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
+
+    # Products that have actually been ordered can't be hard-deleted — the
+    # order_items table has a foreign key to products, and order history
+    # must be preserved. Deactivate instead (hides it from the storefront
+    # without touching past orders).
+    has_order_history = db.query(OrderItem).filter(OrderItem.product_id == product_id).first() is not None
+    if has_order_history:
+        raise HTTPException(
+            status_code=409,
+            detail="This product has existing orders and can't be deleted — use the 'Aktiv' checkbox to hide it from the store instead.",
+        )
 
     # Clear any leftover cart_items referencing this product first — that
     # table has a foreign key to products and isn't cleaned up by the
