@@ -3,8 +3,10 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from database import get_db
+from models.discount import DiscountRedemption
 from models.product import CartItem, Product
 from models.order import Order, OrderItem, OrderStatus
+from services.discount_service import DiscountCheckItem, check_discount_code
 from services.email_service import EmailService
 from utils.validators import validate_email
 
@@ -23,6 +25,7 @@ class DirectOrderRequest(BaseModel):
     shipping_address: str
     shipping_zip: str
     shipping_city: str
+    discount_code: str | None = None
 
 
 # ---------------------------------------------------------
@@ -60,7 +63,21 @@ async def create_order_direct(payload: DirectOrderRequest, db: Session = Depends
         if product.stock < item.quantity:
             raise HTTPException(status_code=400, detail=f"Not enough stock for {product.name}")
 
-    total_amount = sum(products[item.product_id].price * item.quantity for item in payload.items)
+    subtotal = sum(products[item.product_id].price * item.quantity for item in payload.items)
+
+    discount_amount = 0.0
+    discount_result = None
+    if payload.discount_code:
+        check_items = [
+            DiscountCheckItem(product_id=item.product_id, quantity=item.quantity, price=products[item.product_id].price)
+            for item in payload.items
+        ]
+        discount_result = check_discount_code(db, payload.discount_code, check_items, payload.customer_email)
+        if not discount_result.valid:
+            raise HTTPException(status_code=400, detail=discount_result.message)
+        discount_amount = discount_result.discount_amount
+
+    total_amount = max(0.0, subtotal - discount_amount)
 
     order = Order(
         total_amount=total_amount,
@@ -85,6 +102,14 @@ async def create_order_direct(payload: DirectOrderRequest, db: Session = Depends
         ))
         product.stock -= item.quantity
 
+    if discount_result and discount_result.valid and discount_result.discount_code:
+        discount_result.discount_code.used_count += 1
+        db.add(DiscountRedemption(
+            discount_code_id=discount_result.discount_code.id,
+            order_id=order.id,
+            amount=discount_amount,
+        ))
+
     db.commit()
 
     try:
@@ -100,6 +125,7 @@ async def create_order_direct(payload: DirectOrderRequest, db: Session = Depends
         "order_id": order.id,
         "status": order.status.value,
         "total_amount": order.total_amount,
+        "discount_amount": discount_amount,
     }
 
 
