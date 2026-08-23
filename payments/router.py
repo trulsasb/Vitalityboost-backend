@@ -150,12 +150,12 @@ def get_payment_status(payment_id: int, token: str | None = None, db: Session = 
         raise HTTPException(status_code=404, detail="Payment not found")
 
     # payment_id alone is a sequential int anyone could enumerate to read
-    # other customers' payment statuses. status_token closes that, but is
-    # only enforced once a token was actually issued for this payment (rows
-    # created before this field existed, or a caller not passing it yet
-    # during frontend rollout, fall back to the old behavior) and only
-    # rejected on an explicit mismatch -- never silently ignored.
-    if payment.status_token and token is not None and not secrets.compare_digest(token, payment.status_token):
+    # other customers' payment statuses. status_token closes that: required
+    # and checked for any payment that actually has one (i.e. every payment
+    # created after this field shipped, now that the frontend sends it on
+    # every request). Only rows from before this field existed -- which
+    # have no token to check against -- fall back to the old, open behavior.
+    if payment.status_token and (token is None or not secrets.compare_digest(token, payment.status_token)):
         raise HTTPException(status_code=404, detail="Payment not found")
 
     return {"payment_id": payment.id, "status": payment.status}
