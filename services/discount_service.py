@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 
-from sqlalchemy import func
+from sqlalchemy import func, or_, update
 from sqlalchemy.orm import Session
 
 from models.discount import DiscountCode
@@ -77,3 +77,23 @@ def check_discount_code(
         discount_amount=round(discount_amount, 2),
         discount_code=discount,
     )
+
+
+def try_redeem_discount_code(db: Session, discount_code_id: int) -> bool:
+    """Atomically increments used_count, but only if max_uses hasn't been hit
+    in the meantime. check_discount_code() above only reads — under two
+    concurrent checkouts both racing the last use of a code, both reads can
+    see it as valid. This does the actual, authoritative increment as a
+    single conditional UPDATE, so only one of the two can win; the caller
+    must reject the order if this returns False rather than trusting the
+    earlier read."""
+
+    result = db.execute(
+        update(DiscountCode)
+        .where(
+            DiscountCode.id == discount_code_id,
+            or_(DiscountCode.max_uses.is_(None), DiscountCode.used_count < DiscountCode.max_uses),
+        )
+        .values(used_count=DiscountCode.used_count + 1)
+    )
+    return result.rowcount == 1

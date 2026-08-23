@@ -1,16 +1,32 @@
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
+from sqlalchemy import update
 from sqlalchemy.orm import Session
 
 from database import get_db
 from models.discount import DiscountRedemption
 from models.product import CartItem, Product
 from models.order import Order, OrderItem, OrderStatus
-from services.discount_service import DiscountCheckItem, check_discount_code
+from services.discount_service import DiscountCheckItem, check_discount_code, try_redeem_discount_code
 from services.email_service import EmailService
 from utils.validators import validate_email
 
 router = APIRouter(prefix="/orders", tags=["Orders"])
+
+
+def _try_reserve_stock(db: Session, product_id: int, quantity: int) -> bool:
+    """Atomically decrements stock, but only if enough is still available —
+    a single conditional UPDATE re-checks the live row instead of trusting
+    the Python-side read from a few lines earlier, which is what lets two
+    concurrent checkouts both pass validation and both decrement the same
+    unit. Returns False if a concurrent order already claimed it."""
+
+    result = db.execute(
+        update(Product)
+        .where(Product.id == product_id, Product.stock >= quantity)
+        .values(stock=Product.stock - quantity)
+    )
+    return result.rowcount == 1
 
 
 class DirectOrderItem(BaseModel):
@@ -89,21 +105,24 @@ async def create_order_direct(payload: DirectOrderRequest, db: Session = Depends
         shipping_city=payload.shipping_city.strip(),
     )
     db.add(order)
-    db.commit()
-    db.refresh(order)
+    db.flush()  # assigns order.id without committing, in case reservation below fails
 
     for item in payload.items:
         product = products[item.product_id]
+        if not _try_reserve_stock(db, item.product_id, item.quantity):
+            db.rollback()
+            raise HTTPException(status_code=409, detail=f"Not enough stock for {product.name}")
         db.add(OrderItem(
             order_id=order.id,
             product_id=item.product_id,
             quantity=item.quantity,
             price_at_purchase=product.price,
         ))
-        product.stock -= item.quantity
 
     if discount_result and discount_result.valid and discount_result.discount_code:
-        discount_result.discount_code.used_count += 1
+        if not try_redeem_discount_code(db, discount_result.discount_code.id):
+            db.rollback()
+            raise HTTPException(status_code=409, detail="Discount code was just used up")
         db.add(DiscountRedemption(
             discount_code_id=discount_result.discount_code.id,
             order_id=order.id,
@@ -111,6 +130,7 @@ async def create_order_direct(payload: DirectOrderRequest, db: Session = Depends
         ))
 
     db.commit()
+    db.refresh(order)
 
     try:
         await EmailService().send_order_confirmation(
@@ -171,18 +191,19 @@ def create_order(session_id: str, db: Session = Depends(get_db)):
 
     order = Order(total_amount=total_amount, status=OrderStatus.PENDING_PAYMENT)
     db.add(order)
-    db.commit()
-    db.refresh(order)
+    db.flush()  # assigns order.id without committing, in case reservation below fails
 
     for item in cart_items:
         product = products[item.product_id]
+        if not _try_reserve_stock(db, item.product_id, item.quantity):
+            db.rollback()
+            raise HTTPException(status_code=409, detail=f"Not enough stock for {product.name}")
         order_item = OrderItem(
             order_id=order.id,
             product_id=item.product_id,
             quantity=item.quantity,
             price_at_purchase=product.price,
         )
-        product.stock -= item.quantity
         db.add(order_item)
 
     db.query(CartItem).filter(
@@ -190,6 +211,7 @@ def create_order(session_id: str, db: Session = Depends(get_db)):
     ).delete()
 
     db.commit()
+    db.refresh(order)
 
     return {
         "order_id": order.id,
