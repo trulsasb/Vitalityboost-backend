@@ -25,6 +25,14 @@ class Payment(Base):
     # Vipps orderId, etc.) — used to match incoming webhooks back to a row.
     external_reference = Column(String, nullable=True, index=True)
 
+    # Opaque, unguessable token returned to the client at payment initiation
+    # and required (once the frontend passes it) to poll GET /status —
+    # without it, payment_id alone is a sequential int anyone can enumerate.
+    # Nullable so existing rows created before this column don't break; the
+    # status endpoint treats a payment with no token as pre-migration and
+    # falls back to the old (token-less) behavior for it.
+    status_token = Column(String, nullable=True, index=True)
+
     # Relationship to payment events
     events = relationship(
         "PaymentEvent",

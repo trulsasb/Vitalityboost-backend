@@ -1,3 +1,5 @@
+import secrets
+
 import httpx
 import stripe
 from fastapi import APIRouter, Depends, HTTPException
@@ -30,7 +32,14 @@ def initiate_stripe_payment(order_id: int, db: Session = Depends(get_db)):
     if order.status != OrderStatus.PENDING_PAYMENT:
         raise HTTPException(status_code=409, detail="Order is not awaiting payment")
 
-    payment = Payment(order_id=order.id, provider="stripe", status="pending", amount=order.total_amount, currency="NOK")
+    payment = Payment(
+        order_id=order.id,
+        provider="stripe",
+        status="pending",
+        amount=order.total_amount,
+        currency="NOK",
+        status_token=secrets.token_urlsafe(24),
+    )
     db.add(payment)
     db.commit()
     db.refresh(payment)
@@ -59,7 +68,7 @@ def initiate_stripe_payment(order_id: int, db: Session = Depends(get_db)):
     payment.external_reference = session.id
     db.commit()
 
-    return {"payment_id": payment.id, "checkout_url": session.url}
+    return {"payment_id": payment.id, "checkout_url": session.url, "status_token": payment.status_token}
 
 
 # ---------------------------------------------------------
@@ -83,7 +92,14 @@ def initiate_vipps_payment(order_id: int, db: Session = Depends(get_db)):
     if order.status != OrderStatus.PENDING_PAYMENT:
         raise HTTPException(status_code=409, detail="Order is not awaiting payment")
 
-    payment = Payment(order_id=order.id, provider="vipps", status="pending", amount=order.total_amount, currency="NOK")
+    payment = Payment(
+        order_id=order.id,
+        provider="vipps",
+        status="pending",
+        amount=order.total_amount,
+        currency="NOK",
+        status_token=secrets.token_urlsafe(24),
+    )
     db.add(payment)
     db.commit()
     db.refresh(payment)
@@ -120,7 +136,7 @@ def initiate_vipps_payment(order_id: int, db: Session = Depends(get_db)):
     payment.external_reference = reference
     db.commit()
 
-    return {"payment_id": payment.id, "checkout_url": data.get("redirectUrl")}
+    return {"payment_id": payment.id, "checkout_url": data.get("redirectUrl"), "status_token": payment.status_token}
 
 
 # ---------------------------------------------------------
@@ -128,8 +144,18 @@ def initiate_vipps_payment(order_id: int, db: Session = Depends(get_db)):
 # ---------------------------------------------------------
 
 @router.get("/{payment_id}/status")
-def get_payment_status(payment_id: int, db: Session = Depends(get_db)):
+def get_payment_status(payment_id: int, token: str | None = None, db: Session = Depends(get_db)):
     payment = db.query(Payment).filter(Payment.id == payment_id).first()
     if not payment:
         raise HTTPException(status_code=404, detail="Payment not found")
+
+    # payment_id alone is a sequential int anyone could enumerate to read
+    # other customers' payment statuses. status_token closes that, but is
+    # only enforced once a token was actually issued for this payment (rows
+    # created before this field existed, or a caller not passing it yet
+    # during frontend rollout, fall back to the old behavior) and only
+    # rejected on an explicit mismatch -- never silently ignored.
+    if payment.status_token and token is not None and not secrets.compare_digest(token, payment.status_token):
+        raise HTTPException(status_code=404, detail="Payment not found")
+
     return {"payment_id": payment.id, "status": payment.status}
