@@ -8,6 +8,7 @@ from routers.auth import require_permission
 
 router = APIRouter(prefix="/admin/categories", tags=["Admin Categories"])
 
+_can_view = [Depends(require_permission("can_view_products"))]
 _can_edit = [Depends(require_permission("can_edit_products"))]
 
 
@@ -15,7 +16,7 @@ class CategoryCreate(BaseModel):
     name: str
 
 
-@router.get("/", dependencies=_can_edit)
+@router.get("/", dependencies=_can_view)
 def list_categories(db: Session = Depends(get_db)):
     return db.query(Category).order_by(Category.name).all()
 
