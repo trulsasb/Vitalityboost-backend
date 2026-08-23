@@ -6,6 +6,7 @@ from database import get_db
 from models.order import Order, OrderStatus
 from models.payment import Payment
 from models.payment_event import PaymentEvent
+from services.order_service import release_failed_order
 from utils.env import settings
 from utils.integration_settings import resolve_setting
 
@@ -44,6 +45,7 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
             order.status = OrderStatus.PAID
     elif event_type in ("checkout.session.expired", "payment_intent.payment_failed"):
         payment.status = "failed"
+        release_failed_order(db, payment.order_id)
 
     db.commit()
     return {"status": "ok"}
