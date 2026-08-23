@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from models.order import Order, OrderItem, OrderStatus
+from models.product import Product
 from routers.auth import get_current_admin, require_permission
 
 router = APIRouter(prefix="/admin/orders", tags=["Admin Orders"])
@@ -56,8 +57,18 @@ def add_item(order_id: int, product_id: int, quantity: int, db: Session = Depend
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
-    item = OrderItem(order_id=order_id, product_id=product_id, quantity=quantity)
+    product = db.query(Product).filter(Product.id == product_id).first()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    item = OrderItem(
+        order_id=order_id,
+        product_id=product_id,
+        quantity=quantity,
+        price_at_purchase=product.price,
+    )
     db.add(item)
+    order.total_amount += product.price * quantity
     db.commit()
     db.refresh(item)
     return item
