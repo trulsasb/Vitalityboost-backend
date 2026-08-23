@@ -63,7 +63,7 @@ def get_user(user_id: int, db: Session = Depends(get_db)):
     return _public(user)
 
 
-@router.post("/")
+@router.post("/", dependencies=[Depends(get_current_owner)])
 def create_user(payload: UserCreate, db: Session = Depends(get_db)):
     existing = db.query(User).filter(User.email == payload.email).first()
     if existing:
@@ -80,7 +80,7 @@ def create_user(payload: UserCreate, db: Session = Depends(get_db)):
     return _public(user)
 
 
-@router.put("/{user_id}")
+@router.put("/{user_id}", dependencies=[Depends(get_current_owner)])
 def update_user(user_id: int, payload: UserUpdate, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
