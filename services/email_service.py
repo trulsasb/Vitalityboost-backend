@@ -15,8 +15,16 @@ class EmailService:
         self.mailhog_url = "http://mailhog:8025"
 
     async def send_order_confirmation(self, to_email: str, subject: str, body: str):
+        return await self._send(to_email, subject, body)
+
+    async def send_notification(self, to_email: str, subject: str, body: str):
+        """Generic outbound email -- e.g. a contact-form submission -- distinct
+        from send_order_confirmation only by name, so call sites read clearly."""
+        return await self._send(to_email, subject, body)
+
+    async def _send(self, to_email: str, subject: str, body: str):
         if self.test_mode:
-            print(f"[TEST‑MAIL] To: {to_email} — {subject}")
+            print(f"[TEST-MAIL] To: {to_email} - {subject}")
             return {"status": "simulated"}
         if not self.api_key:
             raise HTTPException(status_code=400, detail="SendGrid key missing")

@@ -26,6 +26,9 @@ class Settings(BaseSettings):
 
     # E‑post
     SENDGRID_API_KEY: str | None = None
+    # Fallback contact-form recipient, used until an admin sets one via the
+    # dashboard (stored in site_settings, key "contact_notify_email").
+    CONTACT_EMAIL: str = "kontakt@vitalityboost.no"
 
     # Sikkerhet
     JWT_SECRET: str = "supersecret"

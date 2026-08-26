@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from database import init_db
 from admin_accounting import router as admin_accounting_router
 from admin_categories import router as admin_categories_router
+from admin_contact import router as admin_contact_router
 from admin_content import router as admin_content_router
 from admin_discounts import router as admin_discounts_router
 from admin_integrations import router as admin_integrations_router
@@ -14,6 +15,7 @@ from admin_users import router as admin_users_router
 from payments.router import router as payments_router
 from routers.auth import router as auth_router, get_current_admin, require_permission
 from routers.cart import router as cart_router
+from routers.contact import router as public_contact_router
 from routers.content import router as public_content_router
 from routers.discounts import router as public_discounts_router
 from routers.orders import router as public_orders_router
@@ -60,11 +62,13 @@ app.include_router(admin_payments_router)
 app.include_router(admin_products_router)
 app.include_router(admin_users_router, dependencies=_admin_guard)
 app.include_router(admin_accounting_router, dependencies=_accounting_guard)
+app.include_router(admin_contact_router)
 app.include_router(admin_content_router)
 app.include_router(admin_discounts_router)
 app.include_router(admin_integrations_router)
 app.include_router(payments_router)
 app.include_router(cart_router)
+app.include_router(public_contact_router)
 app.include_router(public_content_router)
 app.include_router(public_discounts_router)
 app.include_router(public_orders_router)
